@@ -40,7 +40,14 @@ backend_training/.venv/bin/python backend_training/sample_grid.py --digit 7 --ou
 
 ## Train in Colab
 
-Open `train_cvae_colab.ipynb` in Colab, use a GPU runtime, and run the notebook. It calls the same backend scripts and writes the same output paths.
+Open `train_cvae_colab.ipynb` in Colab, switch to a GPU runtime, and run the notebook from top to bottom. The notebook calls the same backend scripts as local training and writes the same output paths.
+
+Colab flow:
+
+1. Put this repo in Colab so the notebook can see `backend_training/` and `public/models/`.
+2. In Colab, choose `Runtime > Change runtime type > T4 GPU` or another GPU runtime.
+3. Run the notebook cells to train, export, and zip the frontend model assets.
+4. Copy the exported website files back into your local checkout under `public/models/`.
 
 Copy these files back into `public/models/` if you train remotely:
 
@@ -49,6 +56,19 @@ decoder.onnx
 decoder.onnx.data
 metadata.json
 ```
+
+The RLHF portion stays local in the browser. Colab is only for training and exporting the base decoder.
+
+## Local RLHF Loop
+
+Once the exported files are back in `public/models/`, start the app locally:
+
+```bash
+npm install
+npm run dev -- --host 127.0.0.1
+```
+
+Then open the local Vite URL and use the preference arena. Each click updates the in-browser reward model and latent policy against the frozen decoder you trained in Colab.
 
 ## Architecture
 
