@@ -17,6 +17,7 @@ The app expects these exported model files:
 public/models/decoder.onnx
 public/models/decoder.onnx.data
 public/models/metadata.json
+public/models/latent_map.json
 ```
 
 They are included in this repo after export.
@@ -55,6 +56,7 @@ Copy these files back into `public/models/` if you train remotely:
 decoder.onnx
 decoder.onnx.data
 metadata.json
+latent_map.json
 ```
 
 The RLHF portion stays local in the browser. Colab is only for training and exporting the base decoder.

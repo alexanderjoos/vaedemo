@@ -18,6 +18,7 @@ import {
   generateSamplesForDigit,
   loadDecoder,
 } from "./model/decoder";
+import { loadLatentMap } from "./model/latentMap";
 import {
   cloneRewardModel,
   createRewardModel,
@@ -30,6 +31,7 @@ import {
 } from "./model/analyzers";
 import {
   createLatentPolicy,
+  getBaseLatentParams,
   generateEvaluationTunedSamples,
   generateTunedSamplesForDigit,
   updateLatentPolicyFromRewardScores,
@@ -45,6 +47,7 @@ import {
 export default function App() {
   const [decoderStatus, setDecoderStatus] = useState("loading");
   const [decoderError, setDecoderError] = useState("");
+  const [latentMap, setLatentMap] = useState(null);
   const [rewardModel, setRewardModel] = useState(() => createRewardModel());
   const [latentPolicy, setLatentPolicy] = useState(() => createLatentPolicy());
   const [trainingPhase, setTrainingPhase] = useState("idle");
@@ -74,6 +77,14 @@ export default function App() {
     phaseTimers.current = [];
   }, []);
 
+  const getBaseLatentParamsByDigit = useCallback(
+    () =>
+      Object.fromEntries(
+        Array.from({ length: 10 }, (_, digit) => [digit, getBaseLatentParams(latentMap, digit)])
+      ),
+    [latentMap]
+  );
+
   const updateDiagnostics = useCallback((rm, nextEvalBaseSamples, nextEvalTunedSamples) => {
     const baseScores = nextEvalBaseSamples.map((s) => scoreCandidate(rm, s));
     const tunedScores = nextEvalTunedSamples.map((s) => scoreCandidate(rm, s));
@@ -98,36 +109,43 @@ export default function App() {
 
   const makeNewCandidates = useCallback(async () => {
     clearPhaseTimers();
-    setCandidates(await generateCandidateBatch({ count: 3 }));
+    setCandidates(
+      await generateCandidateBatch({
+        count: 3,
+        latentParamsByDigit: getBaseLatentParamsByDigit(),
+      })
+    );
     setSelectedIdx(null);
     setRejectedIdxs([]);
     setTrainingPhase("idle");
-  }, [clearPhaseTimers]);
+  }, [clearPhaseTimers, getBaseLatentParamsByDigit]);
 
   const refreshVisibleSamples = useCallback(
     async (rm = rewardModel, digit = sampleDigit, policy = latentPolicy) => {
+      const baseParams = getBaseLatentParams(latentMap, digit);
       const [nextBase, nextTuned] = await Promise.all([
-        generateSamplesForDigit(digit, SAMPLE_COUNT),
+        generateSamplesForDigit(digit, SAMPLE_COUNT, baseParams.mean, baseParams.std),
         generateTunedSamplesForDigit(rm, digit, SAMPLE_COUNT, policy),
       ]);
 
       setBaseSamples(nextBase);
       setTunedSamples(nextTuned);
     },
-    [rewardModel, sampleDigit, latentPolicy]
+    [rewardModel, sampleDigit, latentPolicy, latentMap]
   );
 
   const refreshEvaluationAndAnalyzers = useCallback(
     async (rm = rewardModel, policy = latentPolicy) => {
+      const latentParamsByDigit = getBaseLatentParamsByDigit();
       const [nextEvalBase, nextEvalTuned] = await Promise.all([
-        generateEvaluationBaseSamples(2),
+        generateEvaluationBaseSamples(2, latentParamsByDigit),
         generateEvaluationTunedSamples(rm, 2, policy),
       ]);
 
       setEvalBaseSamples(nextEvalBase);
       updateDiagnostics(rm, nextEvalBase, nextEvalTuned);
     },
-    [rewardModel, latentPolicy, updateDiagnostics]
+    [rewardModel, latentPolicy, updateDiagnostics, getBaseLatentParamsByDigit]
   );
 
   const handleChoice = useCallback(
@@ -247,21 +265,37 @@ export default function App() {
       try {
         setDecoderStatus("loading");
         await loadDecoder();
+        const nextLatentMap = await loadLatentMap();
 
         const rm = createRewardModel();
         const initialDigit = 7;
-        const policy = createLatentPolicy();
+        const policy = createLatentPolicy(nextLatentMap);
+        const initialBaseParams = getBaseLatentParams(nextLatentMap, initialDigit);
+        const latentParamsByDigit = Object.fromEntries(
+          Array.from({ length: 10 }, (_, digit) => [digit, getBaseLatentParams(nextLatentMap, digit)])
+        );
         const [nextCandidates, nextBaseSamples, nextTunedSamples, nextEvalBase, nextEvalTuned] =
           await Promise.all([
-            generateCandidateBatch({ count: 3 }),
-            generateSamplesForDigit(initialDigit, SAMPLE_COUNT),
-            generateSamplesForDigit(initialDigit, SAMPLE_COUNT),
-            generateEvaluationBaseSamples(2),
-            generateEvaluationBaseSamples(2),
+            generateCandidateBatch({ count: 3, latentParamsByDigit }),
+            generateSamplesForDigit(
+              initialDigit,
+              SAMPLE_COUNT,
+              initialBaseParams.mean,
+              initialBaseParams.std
+            ),
+            generateSamplesForDigit(
+              initialDigit,
+              SAMPLE_COUNT,
+              initialBaseParams.mean,
+              initialBaseParams.std
+            ),
+            generateEvaluationBaseSamples(2, latentParamsByDigit),
+            generateEvaluationBaseSamples(2, latentParamsByDigit),
           ]);
 
         if (cancelled) return;
 
+        setLatentMap(nextLatentMap);
         setRewardModel(rm);
         setLatentPolicy(policy);
         setCandidates(nextCandidates);
@@ -303,14 +337,16 @@ export default function App() {
 
   const handleReset = async () => {
     const rm = createRewardModel();
-    const nextLatentPolicy = createLatentPolicy();
+    const nextLatentPolicy = createLatentPolicy(latentMap);
+    const baseParams = getBaseLatentParams(latentMap, sampleDigit);
+    const latentParamsByDigit = getBaseLatentParamsByDigit();
     const [nextCandidates, nextBaseSamples, nextTunedSamples, nextEvalBase, nextEvalTuned] =
       await Promise.all([
-        generateCandidateBatch({ count: 3 }),
-        generateSamplesForDigit(sampleDigit, SAMPLE_COUNT),
-        generateSamplesForDigit(sampleDigit, SAMPLE_COUNT),
-        generateEvaluationBaseSamples(2),
-        generateEvaluationBaseSamples(2),
+        generateCandidateBatch({ count: 3, latentParamsByDigit }),
+        generateSamplesForDigit(sampleDigit, SAMPLE_COUNT, baseParams.mean, baseParams.std),
+        generateSamplesForDigit(sampleDigit, SAMPLE_COUNT, baseParams.mean, baseParams.std),
+        generateEvaluationBaseSamples(2, latentParamsByDigit),
+        generateEvaluationBaseSamples(2, latentParamsByDigit),
       ]);
 
     preferredHistory.current = [];
@@ -431,6 +467,7 @@ export default function App() {
       <SampleGenerations
         latentPane={
           <LatentSpacePane
+            latentMap={latentMap}
             sampleDigit={sampleDigit}
             latentPolicy={latentPolicy}
             candidates={candidates}

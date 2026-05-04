@@ -171,7 +171,7 @@ export default function SampleGenerations({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "290px 1fr",
+        gridTemplateColumns: "minmax(760px, 1.45fr) minmax(340px, 1fr)",
         gap: 12,
         marginBottom: 12,
       }}

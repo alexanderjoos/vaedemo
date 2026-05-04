@@ -3,13 +3,31 @@ import {
   sampleLatent,
 } from "./generator";
 import { decodeCandidate } from "./decoder";
+import { getLatentMapDigit } from "./latentMap";
 import { scoreCandidate } from "./rewardModel";
 
-export function createLatentPolicy() {
-  return Array.from({ length: 10 }, () => ({
-    mean: [0, 0],
-    std: 0.62,
-  }));
+function defaultEntry(digit) {
+  const angle = (digit / 10) * Math.PI * 2 - Math.PI / 2;
+  return {
+    mean: [Math.cos(angle) * 1.6, Math.sin(angle) * 1.6],
+    std: 0.44,
+    baseMean: [Math.cos(angle) * 1.6, Math.sin(angle) * 1.6],
+    baseStd: 0.44,
+  };
+}
+
+export function createLatentPolicy(latentMap = null) {
+  return Array.from({ length: 10 }, (_, digit) => {
+    const entry = getLatentMapDigit(latentMap, digit);
+    const fallback = defaultEntry(digit);
+
+    return {
+      mean: entry?.mean ? [...entry.mean] : [...fallback.mean],
+      std: entry?.std || fallback.std,
+      baseMean: entry?.mean ? [...entry.mean] : [...fallback.baseMean],
+      baseStd: entry?.std || fallback.baseStd,
+    };
+  });
 }
 
 export async function updateLatentPolicyFromRewardScores(policy, rm, digit, poolSize = 36) {
@@ -64,6 +82,38 @@ export function sampleTunedLatentDistribution(policy, digit, count = 70) {
 
 export function getLatentPolicyMean(policy, digit) {
   return policy[digit]?.mean || [0, 0];
+}
+
+export function getLatentPolicyEntry(policy, digit) {
+  return policy[digit] || {
+    mean: [0, 0],
+    std: 0.62,
+    baseMean: [0, 0],
+    baseStd: 0.62,
+  };
+}
+
+export function getBaseLatentParams(latentMap, digit) {
+  const entry = getLatentMapDigit(latentMap, digit);
+  if (entry) {
+    return {
+      mean: entry.mean,
+      std: entry.std,
+    };
+  }
+
+  return defaultEntry(digit);
+}
+
+export function transformLatentPoint(point, policyEntry) {
+  const baseMean = policyEntry.baseMean || [0, 0];
+  const baseStd = policyEntry.baseStd || 0.62;
+  const scale = (policyEntry.std || baseStd) / Math.max(baseStd, 1e-4);
+
+  return [
+    policyEntry.mean[0] + (point[0] - baseMean[0]) * scale,
+    policyEntry.mean[1] + (point[1] - baseMean[1]) * scale,
+  ];
 }
 
 export async function bestOfN(rm, digit, n = 24, policy = createLatentPolicy()) {
