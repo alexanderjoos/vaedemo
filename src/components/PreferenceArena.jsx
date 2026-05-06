@@ -63,7 +63,6 @@ export default function PreferenceArena({
   rejectedIdxs,
   onChoice,
   onNewCandidates,
-  queueDepth = 0,
 }) {
   const [pressedIdx, setPressedIdx] = useState(null);
 
@@ -77,56 +76,39 @@ export default function PreferenceArena({
     return () => clearTimeout(timer);
   }, [pressedIdx]);
 
+  useEffect(() => {
+    const handler = (event) => {
+      if (event.key === "1" || event.key === "ArrowLeft") setPressedIdx(0);
+      if (event.key === "2" || event.key === "ArrowUp") setPressedIdx(1);
+      if (event.key === "3" || event.key === "ArrowRight") setPressedIdx(2);
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   return (
     <div
       style={{
         background: "#13161e",
         border: "1px solid #4f46e5",
         borderRadius: 8,
-        padding: 10,
+        padding: 8,
       }}
     >
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent: "flex-end",
           alignItems: "center",
-          marginBottom: 10,
+          marginBottom: 6,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span
-            style={{
-              fontSize: 10,
-              padding: "2px 8px",
-              background: "#4f46e5",
-              color: "#e0e7ff",
-              borderRadius: 10,
-              fontWeight: 500,
-            }}
-          >
-            TRAINING ACTION
-          </span>
-
-          <span
-            style={{
-              fontSize: 10,
-              padding: "2px 8px",
-              background: "#1e293b",
-              color: "#94a3b8",
-              borderRadius: 10,
-              fontFamily: "'IBM Plex Mono', monospace",
-            }}
-          >
-            next ready: {queueDepth > 0 ? "yes" : "no"}
-          </span>
-        </div>
-
         <button
           onClick={onNewCandidates}
           style={{
             fontSize: 11,
-            padding: "4px 9px",
+            padding: "4px 8px",
             background: "#1e293b",
             color: "#94a3b8",
             border: "none",
@@ -135,11 +117,11 @@ export default function PreferenceArena({
             fontFamily: "'IBM Plex Mono', monospace",
           }}
         >
-          new candidates
+          regenerate
         </button>
       </div>
 
-      <p style={{ fontSize: 12, color: "#cbd5e1", margin: "0 0 8px 0" }}>
+      <p style={{ fontSize: 12, color: "#cbd5e1", margin: "0 0 6px 0" }}>
         Pick the best output. Click or press `1 / 2 / 3`.
       </p>
 
@@ -147,8 +129,8 @@ export default function PreferenceArena({
         style={{
           display: "flex",
           justifyContent: "center",
-          gap: 18,
-          minHeight: 88,
+          gap: 14,
+          minHeight: 78,
           alignItems: "center",
         }}
       >
@@ -157,7 +139,7 @@ export default function PreferenceArena({
             <DigitImage
               key={candidate.id}
               candidate={candidate}
-              size={74}
+              size={70}
               onPress={() => {
                 setPressedIdx(i);
               }}

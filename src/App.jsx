@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import ControlsSummary from "./components/ControlsSummary";
 import LatentSpacePane from "./components/LatentSpacePane";
 import PreferenceArena from "./components/PreferenceArena";
 import SampleGenerations from "./components/SampleGenerations";
-import TraitAnalyzer from "./components/TraitAnalyzer";
 import { SAMPLE_COUNT } from "./model/generator";
 import {
   generateCandidateBatch,
-  generateEvaluationBaseSamples,
   generateSamplesBase,
   loadDecoder,
 } from "./model/decoder";
@@ -18,17 +15,14 @@ import {
   createRewardModel,
   updateRewardModelFromPreference,
 } from "./model/rewardModel";
-import { computeTraitAnalysis } from "./model/analyzers";
 import {
   createLatentPolicy,
   getBaseLatentParams,
-  generateEvaluationTunedSamples,
   generateTunedSamples,
   updateLatentPolicyFromRewardScores,
 } from "./model/latentPolicy";
 
 const PREFERENCE_BATCH_TARGET = 2;
-const EVAL_SAMPLE_COUNT = 24;
 
 export default function App() {
   const [decoderStatus, setDecoderStatus] = useState("loading");
@@ -43,8 +37,6 @@ export default function App() {
   const [rejectedIdxs, setRejectedIdxs] = useState([]);
   const [baseSamples, setBaseSamples] = useState([]);
   const [tunedSamples, setTunedSamples] = useState([]);
-  const [evalBaseSamples, setEvalBaseSamples] = useState([]);
-  const [traitAnalysis, setTraitAnalysis] = useState({});
 
   const preferredHistory = useRef([]);
   const rejectedHistory = useRef([]);
@@ -108,17 +100,6 @@ export default function App() {
     setCandidateQueue(rest);
   }, [generateCandidateSets, topUpCandidateQueue]);
 
-  const updateDiagnostics = useCallback((nextEvalBaseSamples, nextEvalTunedSamples) => {
-    setTraitAnalysis(
-      computeTraitAnalysis(
-        nextEvalBaseSamples,
-        nextEvalTunedSamples,
-        preferredHistory.current,
-        rejectedHistory.current
-      )
-    );
-  }, []);
-
   const makeNewCandidates = useCallback(async () => {
     await advanceCandidateBatch();
   }, [advanceCandidateBatch]);
@@ -135,20 +116,6 @@ export default function App() {
       setTunedSamples(nextTuned);
     },
     [rewardModel, latentPolicy, latentMap]
-  );
-
-  const refreshEvaluationAndAnalyzers = useCallback(
-    async (rm = rewardModel, policy = latentPolicy) => {
-      const baseParams = getBaseLatentParams(latentMap);
-      const [nextEvalBase, nextEvalTuned] = await Promise.all([
-        generateEvaluationBaseSamples(EVAL_SAMPLE_COUNT, baseParams),
-        generateEvaluationTunedSamples(rm, EVAL_SAMPLE_COUNT, policy),
-      ]);
-
-      setEvalBaseSamples(nextEvalBase);
-      updateDiagnostics(nextEvalBase, nextEvalTuned);
-    },
-    [rewardModel, latentPolicy, updateDiagnostics, latentMap]
   );
 
   const handleChoice = useCallback(
@@ -180,25 +147,13 @@ export default function App() {
 
         await advanceCandidateBatch();
 
-        const [nextTuned, nextEvalTuned] = await Promise.all([
-          generateTunedSamples(rmCopy, SAMPLE_COUNT, nextLatentPolicy),
-          generateEvaluationTunedSamples(rmCopy, EVAL_SAMPLE_COUNT, nextLatentPolicy),
-        ]);
+        const nextTuned = await generateTunedSamples(rmCopy, SAMPLE_COUNT, nextLatentPolicy);
         setTunedSamples(nextTuned);
-        updateDiagnostics(evalBaseSamples, nextEvalTuned);
       } catch (error) {
         setDecoderError(error.message);
       }
     },
-    [
-      selectedIdx,
-      candidates,
-      rewardModel,
-      latentPolicy,
-      advanceCandidateBatch,
-      evalBaseSamples,
-      updateDiagnostics,
-    ]
+    [selectedIdx, candidates, rewardModel, latentPolicy, advanceCandidateBatch]
   );
 
   useEffect(() => {
@@ -236,19 +191,15 @@ export default function App() {
         setCandidateQueue(candidateBatches.slice(1));
         setDecoderStatus("ready");
 
-        const [nextBaseSamples, nextTunedSeed, nextEvalBase, nextEvalTuned] = await Promise.all([
+        const [nextBaseSamples, nextTunedSeed] = await Promise.all([
           generateSamplesBase(SAMPLE_COUNT, baseParams.mean, baseParams.std),
           generateSamplesBase(SAMPLE_COUNT, baseParams.mean, baseParams.std),
-          generateEvaluationBaseSamples(EVAL_SAMPLE_COUNT, baseParams),
-          generateEvaluationBaseSamples(EVAL_SAMPLE_COUNT, baseParams),
         ]);
 
         if (cancelled) return;
 
         setBaseSamples(nextBaseSamples);
         setTunedSamples(nextTunedSeed);
-        setEvalBaseSamples(nextEvalBase);
-        updateDiagnostics(nextEvalBase, nextEvalTuned);
       } catch (error) {
         if (cancelled) return;
         setDecoderError(error.message);
@@ -260,7 +211,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [generateCandidateSets, updateDiagnostics]);
+  }, [generateCandidateSets]);
 
   const handleLearningRateChange = (lr) => {
     setRewardModel((rm) => ({
@@ -275,14 +226,11 @@ export default function App() {
     latentPolicyRef.current = nextLatentPolicy;
     const baseParams = getBaseLatentParams(latentMap);
 
-    const [candidateBatches, nextBaseSamples, nextTunedSeed, nextEvalBase, nextEvalTuned] =
-      await Promise.all([
-        generateCandidateSets(PREFERENCE_BATCH_TARGET, nextLatentPolicy),
-        generateSamplesBase(SAMPLE_COUNT, baseParams.mean, baseParams.std),
-        generateSamplesBase(SAMPLE_COUNT, baseParams.mean, baseParams.std),
-        generateEvaluationBaseSamples(EVAL_SAMPLE_COUNT, baseParams),
-        generateEvaluationBaseSamples(EVAL_SAMPLE_COUNT, baseParams),
-      ]);
+    const [candidateBatches, nextBaseSamples, nextTunedSeed] = await Promise.all([
+      generateCandidateSets(PREFERENCE_BATCH_TARGET, nextLatentPolicy),
+      generateSamplesBase(SAMPLE_COUNT, baseParams.mean, baseParams.std),
+      generateSamplesBase(SAMPLE_COUNT, baseParams.mean, baseParams.std),
+    ]);
 
     preferredHistory.current = [];
     rejectedHistory.current = [];
@@ -296,10 +244,6 @@ export default function App() {
     setRejectedIdxs([]);
     setBaseSamples(nextBaseSamples);
     setTunedSamples(nextTunedSeed);
-    setEvalBaseSamples(nextEvalBase);
-    setTraitAnalysis({});
-
-    updateDiagnostics(nextEvalBase, nextEvalTuned);
   };
 
   return (
@@ -350,14 +294,7 @@ export default function App() {
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 280px",
-          gap: 12,
-          marginBottom: 10,
-        }}
-      >
+      <div style={{ marginBottom: 8 }}>
         <PreferenceArena
           candidates={candidates}
           selectedIdx={selectedIdx}
@@ -366,36 +303,7 @@ export default function App() {
             void handleChoice(idx);
           }}
           onNewCandidates={makeNewCandidates}
-          queueDepth={candidateQueue.length}
         />
-
-        <div style={{ display: "grid", gap: 12 }}>
-          <div
-            style={{
-              background: "#13161e",
-              border: "1px solid #1e293b",
-              borderRadius: 8,
-              padding: 10,
-            }}
-          >
-            <ControlsSummary
-              rewardModel={rewardModel}
-              onLearningRateChange={handleLearningRateChange}
-              onReset={handleReset}
-              rankings={rankings}
-            />
-
-            <div
-              style={{
-                marginTop: 10,
-                paddingTop: 10,
-                borderTop: "1px solid #1e293b",
-              }}
-            >
-              <TraitAnalyzer rankings={rankings} traitAnalysis={traitAnalysis} />
-            </div>
-          </div>
-        </div>
       </div>
 
       <SampleGenerations
@@ -410,9 +318,12 @@ export default function App() {
         }
         baseSamples={baseSamples}
         tunedSamples={tunedSamples}
+        rewardModel={rewardModel}
+        onLearningRateChange={handleLearningRateChange}
+        onReset={handleReset}
+        rankings={rankings}
         onRefreshSamples={() => {
           void refreshVisibleSamples();
-          void refreshEvaluationAndAnalyzers();
         }}
       />
     </div>

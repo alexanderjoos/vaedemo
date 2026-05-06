@@ -252,38 +252,24 @@ export default function LatentSpacePane({
         padding: 12,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-        <span
-          style={{
-            fontWeight: 600,
-            fontSize: 13,
-            color: "#94a3b8",
-            letterSpacing: "0.04em",
-            textTransform: "uppercase",
-          }}
-        >
-          Latent space
-        </span>
-
-        <span
-          style={{
-            fontSize: 10,
-            padding: "2px 8px",
-            background: "#1e293b",
-            color: "#cbd5e1",
-            borderRadius: 10,
-            fontFamily: "'IBM Plex Mono', monospace",
-          }}
-        >
-          click or drag · unconditional decode(z)
-        </span>
+      <div
+        style={{
+          fontWeight: 600,
+          fontSize: 13,
+          color: "#94a3b8",
+          letterSpacing: "0.04em",
+          textTransform: "uppercase",
+          marginBottom: 8,
+        }}
+      >
+        Latent space
       </div>
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr minmax(190px, 250px)",
-          gap: 12,
+          gridTemplateColumns: "1fr minmax(180px, 228px)",
+          gap: 10,
           alignItems: "start",
         }}
       >
@@ -307,7 +293,7 @@ export default function LatentSpacePane({
           <svg
             viewBox={`0 0 ${plotSize} ${plotSize}`}
             width="100%"
-            height={300}
+            height={286}
             role="img"
             aria-label="MNIST latent space"
             onClick={(event) => handlePick(pickPoint(event, plotSize, extent))}

@@ -1,3 +1,5 @@
+import ControlsSummary from "./ControlsSummary";
+
 function DigitImage({ candidate, size = 64 }) {
   return (
     <div style={{ textAlign: "center" }}>
@@ -27,6 +29,10 @@ export default function SampleGenerations({
   baseSamples,
   tunedSamples,
   onRefreshSamples,
+  rewardModel,
+  onLearningRateChange,
+  onReset,
+  rankings,
 }) {
   const generations = (
     <div
@@ -42,34 +48,20 @@ export default function SampleGenerations({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: 10,
+          marginBottom: 8,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span
-            style={{
-              fontWeight: 600,
-              fontSize: 13,
-              color: "#94a3b8",
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-            }}
-          >
-            Sample generations
-          </span>
-
-          <span
-            style={{
-              fontSize: 10,
-              padding: "2px 8px",
-              background: "#1e293b",
-              color: "#64748b",
-              borderRadius: 10,
-            }}
-          >
-            unconditional decode(z)
-          </span>
-        </div>
+        <span
+          style={{
+            fontWeight: 600,
+            fontSize: 13,
+            color: "#94a3b8",
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+          }}
+        >
+          Details
+        </span>
 
         <button
           type="button"
@@ -89,7 +81,23 @@ export default function SampleGenerations({
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+        <div
+          style={{
+            border: "1px solid #334155",
+            borderRadius: 9,
+            padding: 10,
+            background: "#10141d",
+          }}
+        >
+          <ControlsSummary
+            rewardModel={rewardModel}
+            onLearningRateChange={onLearningRateChange}
+            onReset={onReset}
+            rankings={rankings}
+          />
+        </div>
+
         <div
           style={{
             border: "1px solid #334155",
@@ -141,8 +149,8 @@ export default function SampleGenerations({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(520px, 1.45fr) minmax(320px, 1fr)",
-        gap: 12,
+        gridTemplateColumns: "minmax(500px, 1.45fr) minmax(300px, 1fr)",
+        gap: 10,
       }}
     >
       {latentPane}

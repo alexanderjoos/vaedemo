@@ -1,8 +1,18 @@
-# RLHF Demo (Cornell-style MNIST latent map)
+# Preference Reward Model VAE
 
-An interactive RLHF-style demo built with React, Vite, an unconditional 2D MNIST VAE in the browser (ONNX), and an image-based reward model.
+This demo is for showing what a learned reward model can do before you go back and retrain a base model.
 
-You navigate latent space like the [CS4782 MNIST viewer](https://www.cs.cornell.edu/courses/cs4782/2026sp/demos/vae/vae_viewer.html): click or drag to change **z** and decode a single digit. The preference arena then shifts a **learned Gaussian sampler** over **z** (cyan vs purple prior ellipses on the scatter plot) while the decoder stays frozen.
+In standard RLHF-style pipelines, a reward model is trained from human preferences and then used to optimize the main model. This project only demonstrates the first part of that story live in the browser:
+
+- the VAE is trained offline first
+- the decoder stays frozen during the demo
+- the user gives pairwise preferences
+- the browser updates a small reward model
+- the sampler over latent space shifts toward regions the reward model prefers
+
+So this is best understood as a preference-reward-model demo, not full RLHF fine-tuning.
+
+The latent view is inspired by the [CS4782 MNIST viewer](https://www.cs.cornell.edu/courses/cs4782/2026sp/demos/vae/vae_viewer.html): click or drag to move around a 2D latent space and decode a digit at that point. The purple heatmap shows where the current preference-guided sampler is concentrating probability mass while the decoder itself stays fixed.
 
 ## Run the Demo
 
@@ -19,7 +29,7 @@ public/models/metadata.json
 public/models/latent_map.json
 ```
 
-`decoder.onnx.data` is only present when weights are stored externally; the loader falls back to an embedded-weights model.
+`decoder.onnx.data` is present when ONNX weights are stored externally.
 
 They are included in this repo after export.
 
@@ -55,13 +65,14 @@ Copy these files back into `public/models/` if you train remotely:
 
 ```text
 decoder.onnx
+decoder.onnx.data
 metadata.json
 latent_map.json
 ```
 
-The RLHF portion stays local in the browser. Colab is only for training and exporting the base decoder plus latent-map asset.
+The preference-reward-model portion stays local in the browser. Colab is only for training and exporting the base decoder plus latent-map asset.
 
-## Local RLHF Loop
+## Local Preference Loop
 
 Once the exported files are back in `public/models/`, start the app locally:
 
@@ -70,13 +81,24 @@ npm install
 npm run dev -- --host 127.0.0.1
 ```
 
-Then open the local Vite URL and use the preference arena. Each click updates the in-browser reward model and latent policy against the frozen decoder you trained in Colab.
+Then open the local Vite URL and use the preference arena. Each click updates the in-browser reward model and the sampling distribution over latent space against the frozen decoder you trained in Colab.
+
+What changes during the demo:
+
+- reward model weights
+- latent sampler mean and spread
+
+What does not change during the demo:
+
+- VAE encoder weights
+- VAE decoder weights
+- ONNX model files on disk
 
 ## Architecture
 
 - `src/model/decoder.js`: loads `decoder.onnx` with `onnxruntime-web` and returns image candidates.
 - `src/model/rewardModel.js`: image-based preference reward model.
-- `src/model/latentPolicy.js`: reward-score-driven 2D latent policy updates.
+- `src/model/latentPolicy.js`: reward-score-driven updates to the latent sampling distribution.
 - `src/model/latentMap.js`: latent embedding asset loader for the CS4782-style visualization.
 - `src/model/analyzers.js`: post-hoc diagnostic image analyzers only.
 - `backend_training/`: offline PyTorch unconditional MNIST VAE training and ONNX export (`train_unconditional_mnist.py`, `export_decoder.py`).
