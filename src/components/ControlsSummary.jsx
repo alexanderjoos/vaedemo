@@ -3,6 +3,7 @@ export default function ControlsSummary({
   onLearningRateChange,
   onReset,
   learnedTraits,
+  rankings,
 }) {
   return (
     <div>
@@ -19,6 +20,31 @@ export default function ControlsSummary({
       >
         Controls + Summary
       </span>
+
+      <div
+        style={{
+          marginBottom: 10,
+          padding: "8px 10px",
+          borderRadius: 6,
+          background: "#10141d",
+          border: "1px solid #263244",
+        }}
+      >
+        <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase" }}>
+          Total Rankings
+        </div>
+        <div
+          style={{
+            color: "#f8fafc",
+            fontSize: 24,
+            lineHeight: 1.1,
+            fontWeight: 600,
+            fontFamily: "'IBM Plex Mono', monospace",
+          }}
+        >
+          {rankings}
+        </div>
+      </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <span style={{ fontSize: 11, color: "#64748b", width: 86 }}>Learn Rate:</span>

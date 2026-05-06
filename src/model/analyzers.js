@@ -1,12 +1,6 @@
 import { clamp } from "./generator";
 
-export const ANALYZER_TRAITS = [
-  "thickness",
-  "centeredness",
-  "slant",
-  "cleanliness",
-  "colorTemperature",
-];
+export const ANALYZER_TRAITS = ["colorTemperature"];
 
 export const TRAIT_LABELS = {
   thickness: "Stroke Thickness",

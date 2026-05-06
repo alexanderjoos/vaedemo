@@ -3,12 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ControlsSummary from "./components/ControlsSummary";
 import LatentSpacePane from "./components/LatentSpacePane";
 import PreferenceArena from "./components/PreferenceArena";
-import RewardDiagnostics from "./components/RewardDiagnostics";
 import SampleGenerations from "./components/SampleGenerations";
-import TaskExplanation from "./components/TaskExplanation";
 import TraitAnalyzer from "./components/TraitAnalyzer";
-import TrainingMetrics from "./components/TrainingMetrics";
-import TrainingPipeline from "./components/TrainingPipeline";
 import {
   SAMPLE_COUNT,
 } from "./model/generator";
@@ -412,9 +408,6 @@ export default function App() {
     updateDiagnostics(rm, nextEvalBase, nextEvalTuned);
   };
 
-  const preferenceAccuracy =
-    comparisons > 0 ? `${Math.round((correctComparisons / comparisons) * 100)}%` : "---";
-
   const learnedTraits = Object.entries(traitAnalysis)
     .filter(([, a]) => a.level === "confirmed" || a.level === "strong")
     .map(([trait, a]) => describeTraitDirection(trait, a.direction));
@@ -445,17 +438,16 @@ export default function App() {
             color: "#f1f5f9",
           }}
         >
-          RLHF Playground
+          RLHF Demo
         </h1>
 
         <span
           style={{
             fontSize: 12,
             color: "#64748b",
-            fontFamily: "'IBM Plex Mono', monospace",
           }}
         >
-          Colored MNIST-style digit generation
+          Rate outputs and watch the tuned sampler shift toward your preferences.
         </span>
 
         <div
@@ -476,23 +468,11 @@ export default function App() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "290px 1fr 270px",
+          gridTemplateColumns: "1fr 280px",
           gap: 12,
           marginBottom: 12,
         }}
       >
-        <div
-          style={{
-            background: "#13161e",
-            border: "1px solid #1e293b",
-            borderRadius: 8,
-            padding: 14,
-            fontSize: 12,
-          }}
-        >
-          <TaskExplanation />
-        </div>
-
         <PreferenceArena
           candidates={candidates}
           selectedIdx={selectedIdx}
@@ -504,7 +484,31 @@ export default function App() {
           queueDepth={candidateQueue.length}
         />
 
-        <TraitAnalyzer rankings={rankings} traitAnalysis={traitAnalysis} />
+        <div
+          style={{
+            display: "grid",
+            gap: 12,
+          }}
+        >
+          <div
+            style={{
+              background: "#13161e",
+              border: "1px solid #1e293b",
+              borderRadius: 8,
+              padding: 14,
+            }}
+          >
+            <ControlsSummary
+              rewardModel={rewardModel}
+              onLearningRateChange={handleLearningRateChange}
+              onReset={handleReset}
+              learnedTraits={learnedTraits}
+              rankings={rankings}
+            />
+          </div>
+
+          <TraitAnalyzer rankings={rankings} traitAnalysis={traitAnalysis} />
+        </div>
       </div>
 
       <SampleGenerations
@@ -525,40 +529,6 @@ export default function App() {
         onRefreshSamples={handleRefreshSamples}
         onSampleDigitChange={handleSampleDigitChange}
       />
-
-      <div
-        style={{
-          background: "#13161e",
-          border: "1px solid #1e293b",
-          borderRadius: 8,
-          padding: 14,
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr 1fr",
-          gap: 16,
-        }}
-      >
-        <TrainingPipeline trainingPhase={trainingPhase} />
-
-        <TrainingMetrics
-          rankings={rankings}
-          preferenceAccuracy={preferenceAccuracy}
-          lossHistory={lossHistory}
-          marginHistory={marginHistory}
-        />
-
-        <RewardDiagnostics
-          avgBaseReward={avgBaseReward}
-          avgTunedReward={avgTunedReward}
-          rewardDistribution={rewardDistribution}
-        />
-
-        <ControlsSummary
-          rewardModel={rewardModel}
-          onLearningRateChange={handleLearningRateChange}
-          onReset={handleReset}
-          learnedTraits={learnedTraits}
-        />
-      </div>
     </div>
   );
 }

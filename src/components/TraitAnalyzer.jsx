@@ -19,6 +19,13 @@ function confLabel(level) {
 }
 
 export default function TraitAnalyzer({ rankings, traitAnalysis }) {
+  const key = "colorTemperature";
+  const analysis = traitAnalysis[key] || {
+    confidence: 0,
+    level: "unclear",
+    direction: "higher",
+  };
+
   return (
     <div
       style={{
@@ -56,91 +63,81 @@ export default function TraitAnalyzer({ rankings, traitAnalysis }) {
 
       {rankings < 3 ? (
         <p style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>
-          Provide a few rankings to start seeing image-trait signals.
+          Provide a few rankings to start seeing a color preference signal.
         </p>
       ) : (
         <div>
           <p style={{ fontSize: 11, color: "#94a3b8", margin: "0 0 8px 0" }}>
-            Signals detected from generated images:
+            Detected preference signal:
           </p>
 
-          {ANALYZER_TRAITS.map((k) => {
-            const a = traitAnalysis[k] || {
-              confidence: 0,
-              level: "unclear",
-              direction: "higher",
-            };
+          <div style={{ marginBottom: 8 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 2,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  color: "#cbd5e1",
+                  fontFamily: "'IBM Plex Mono', monospace",
+                }}
+              >
+                {TRAIT_LABELS[key]}
+              </span>
 
-            return (
-              <div key={k} style={{ marginBottom: 8 }}>
+              <span style={{ fontSize: 10, color: confColor(analysis.level) }}>
+                {analysis.level === "confirmed" || analysis.level === "strong"
+                  ? "✓"
+                  : analysis.level === "emerging"
+                  ? "..."
+                  : "?"}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div
+                style={{
+                  flex: 1,
+                  height: 6,
+                  background: "#1e293b",
+                  borderRadius: 3,
+                  overflow: "hidden",
+                }}
+              >
                 <div
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 2,
+                    width: `${analysis.confidence * 100}%`,
+                    height: "100%",
+                    background: confColor(analysis.level),
+                    borderRadius: 3,
+                    transition: "width 0.4s ease, background 0.4s ease",
                   }}
-                >
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: "#cbd5e1",
-                      fontFamily: "'IBM Plex Mono', monospace",
-                    }}
-                  >
-                    {TRAIT_LABELS[k]}
-                  </span>
-
-                  <span style={{ fontSize: 10, color: confColor(a.level) }}>
-                    {a.level === "confirmed" || a.level === "strong"
-                      ? "✓"
-                      : a.level === "emerging"
-                      ? "..."
-                      : "?"}
-                  </span>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <div
-                    style={{
-                      flex: 1,
-                      height: 6,
-                      background: "#1e293b",
-                      borderRadius: 3,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: `${a.confidence * 100}%`,
-                        height: "100%",
-                        background: confColor(a.level),
-                        borderRadius: 3,
-                        transition: "width 0.4s ease, background 0.4s ease",
-                      }}
-                    />
-                  </div>
-
-                  <span
-                    style={{
-                      fontSize: 9,
-                      color: "#64748b",
-                      width: 70,
-                      textAlign: "right",
-                    }}
-                  >
-                    {confLabel(a.level)}
-                  </span>
-                </div>
-
-                {(a.level === "confirmed" || a.level === "strong") && (
-                  <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 1 }}>
-                    {describeTraitDirection(k, a.direction)}
-                  </div>
-                )}
+                />
               </div>
-            );
-          })}
+
+              <span
+                style={{
+                  fontSize: 9,
+                  color: "#64748b",
+                  width: 70,
+                  textAlign: "right",
+                }}
+              >
+                {confLabel(analysis.level)}
+              </span>
+            </div>
+
+            {(analysis.level === "confirmed" || analysis.level === "strong") && (
+              <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 1 }}>
+                {describeTraitDirection(key, analysis.direction)}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
