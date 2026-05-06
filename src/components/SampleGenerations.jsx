@@ -101,7 +101,7 @@ export default function SampleGenerations({
           <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 3 }}>Base generator</div>
 
           <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>
-            Samples from the empirical training prior (does not change with RLHF).
+            Samples from the fixed base sampler used by the pretrained VAE.
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -119,7 +119,7 @@ export default function SampleGenerations({
             background: "rgba(79,70,229,0.08)",
           }}
         >
-          <div style={{ fontSize: 12, color: "#c7d2fe", marginBottom: 3 }}>RLHF-tuned sampler</div>
+          <div style={{ fontSize: 12, color: "#c7d2fe", marginBottom: 3 }}>Preference-guided sampler</div>
 
           <div style={{ fontSize: 11, color: "#818cf8", marginBottom: 8 }}>
             Best-of-N decoded latents scored by the learned reward model.

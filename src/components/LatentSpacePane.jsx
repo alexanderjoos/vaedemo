@@ -67,26 +67,6 @@ function Background({ size }) {
   );
 }
 
-function PriorCircles({ mean, std, size, extent, stroke, dasharray }) {
-  const scale = size / (extent * 2);
-  const [cx, cy] = project(mean, size, extent);
-  const radii = [std * scale, 2 * std * scale];
-
-  return radii.map((r, i) => (
-    <circle
-      key={`${stroke}-${i}`}
-      cx={cx}
-      cy={cy}
-      r={Math.max(2, r)}
-      fill="none"
-      stroke={stroke}
-      strokeWidth={i === 0 ? 1.35 : 1}
-      strokeDasharray={dasharray}
-      opacity={i === 0 ? 0.95 : 0.65}
-    />
-  ));
-}
-
 function PointCloud({ points, digit, size, extent }) {
   const fill = DIGIT_COLORS[digit];
 
@@ -134,6 +114,54 @@ function DigitMarker({ digit, point, size, extent }) {
   );
 }
 
+function SamplerHeatmap({ mean, std, size, extent }) {
+  const cells = 22;
+  const cellSize = size / cells;
+  const stdSafe = Math.max(0.05, std || 0.44);
+  const threshold = 0.06;
+  const tiles = [];
+
+  for (let gy = 0; gy < cells; gy += 1) {
+    for (let gx = 0; gx < cells; gx += 1) {
+      const px = ((gx + 0.5) / cells) * size;
+      const py = ((gy + 0.5) / cells) * size;
+      const latentPoint = [
+        ((px - size / 2) / size) * extent * 2,
+        ((size / 2 - py) / size) * extent * 2,
+      ];
+      const density = scoreDensity(latentPoint, mean, stdSafe);
+      if (density < threshold) continue;
+      const alpha = Math.min(0.52, density * 0.5);
+      tiles.push(
+        <rect
+          key={`${gx}-${gy}`}
+          x={gx * cellSize}
+          y={gy * cellSize}
+          width={cellSize + 0.5}
+          height={cellSize + 0.5}
+          fill={`rgba(167, 139, 250, ${alpha.toFixed(3)})`}
+        />
+      );
+    }
+  }
+
+  return <g>{tiles}</g>;
+}
+
+function SamplerMeanMarker({ point, size, extent, fill, stroke, radius = 5 }) {
+  const [x, y] = project(point, size, extent);
+  return (
+    <circle
+      cx={x}
+      cy={y}
+      r={radius}
+      fill={fill}
+      stroke={stroke}
+      strokeWidth="1.5"
+    />
+  );
+}
+
 function PreviewCursor({ point, size, extent }) {
   const [x, y] = project(point, size, extent);
 
@@ -176,7 +204,7 @@ export default function LatentSpacePane({
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync preview z with updated μ after RLHF
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync preview z with updated sampler mean
     setPreviewPoint(getLatentPolicyMean(latentPolicy));
   }, [latentPolicy]);
 
@@ -272,7 +300,7 @@ export default function LatentSpacePane({
                 textTransform: "uppercase",
               }}
             >
-              cyan dashed = base N(μ₀, σ₀²) · purple solid = RLHF-adjusted N(μ, σ²)
+              purple heatmap = current preference sampler density over the latent plane
             </div>
           </div>
 
@@ -306,22 +334,11 @@ export default function LatentSpacePane({
             }}
           >
             <Background size={plotSize} />
-
-            <PriorCircles
-              mean={policyEntry.baseMean || [0, 0]}
-              std={policyEntry.baseStd || 0.44}
-              size={plotSize}
-              extent={extent}
-              stroke="#38bdf8"
-              dasharray="6 5"
-            />
-
-            <PriorCircles
+            <SamplerHeatmap
               mean={policyEntry.mean}
               std={policyEntry.std}
               size={plotSize}
               extent={extent}
-              stroke="#a78bfa"
             />
 
             {baseDigits.map((entry) => (
@@ -374,6 +391,21 @@ export default function LatentSpacePane({
               );
             })}
 
+            <SamplerMeanMarker
+              point={policyEntry.baseMean || [0, 0]}
+              size={plotSize}
+              extent={extent}
+              fill="#0f172a"
+              stroke="#38bdf8"
+            />
+            <SamplerMeanMarker
+              point={policyEntry.mean}
+              size={plotSize}
+              extent={extent}
+              fill="#a78bfa"
+              stroke="#ede9fe"
+              radius={4.5}
+            />
             <PreviewCursor point={previewPoint} size={plotSize} extent={extent} />
           </svg>
 
@@ -469,13 +501,13 @@ export default function LatentSpacePane({
           <div style={{ display: "grid", gap: 6 }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 4, fontSize: 11 }}>
               <div>
-                <span style={{ color: "#38bdf8" }}>base prior density at z</span>{" "}
+                <span style={{ color: "#38bdf8" }}>base sampler density at z</span>{" "}
                 <span style={{ color: "#e2e8f0", fontFamily: "'IBM Plex Mono', monospace" }}>
                   {baseDensity.toFixed(3)}
                 </span>
               </div>
               <div>
-                <span style={{ color: "#a78bfa" }}>RLHF prior density at z</span>{" "}
+                <span style={{ color: "#a78bfa" }}>preference sampler density at z</span>{" "}
                 <span style={{ color: "#e2e8f0", fontFamily: "'IBM Plex Mono', monospace" }}>
                   {tunedDensity.toFixed(3)}
                 </span>

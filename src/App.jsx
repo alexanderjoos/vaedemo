@@ -328,11 +328,11 @@ export default function App() {
             color: "#f1f5f9",
           }}
         >
-          RLHF Demo
+          Preference Reward Model VAE
         </h1>
 
         <span style={{ fontSize: 11, color: "#64748b" }}>
-          Unconditional MNIST VAE with a frozen decoder and preference-tuned latent sampling.
+          Unconditional MNIST VAE with a frozen decoder, an in-browser reward model, and a preference-guided sampler.
         </span>
 
         <div
@@ -345,7 +345,7 @@ export default function App() {
         >
           {decoderStatus === "loading" && "Loading ONNX decoder..."}
           {decoderStatus === "ready" &&
-            "Decoder ready. Each ranking updates the reward model and shifts the latent sampler."}
+            "Decoder ready. Each ranking updates the reward model and the sampling distribution over z."}
           {decoderStatus === "error" && `Decoder load failed: ${decoderError}`}
         </div>
       </div>
