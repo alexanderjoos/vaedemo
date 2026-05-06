@@ -44,6 +44,8 @@ import {
 // - Trait analyzers inspect rendered images after the fact.
 // - Analyzer scores are never passed into the reward model.
 
+const PREFERENCE_BATCH_TARGET = 2;
+
 export default function App() {
   const [decoderStatus, setDecoderStatus] = useState("loading");
   const [decoderError, setDecoderError] = useState("");
@@ -57,6 +59,7 @@ export default function App() {
   const [lossHistory, setLossHistory] = useState([]);
   const [marginHistory, setMarginHistory] = useState([]);
   const [candidates, setCandidates] = useState([]);
+  const [candidateQueue, setCandidateQueue] = useState([]);
   const [selectedIdx, setSelectedIdx] = useState(null);
   const [rejectedIdxs, setRejectedIdxs] = useState([]);
   const [sampleDigit, setSampleDigit] = useState(7);
@@ -71,6 +74,12 @@ export default function App() {
   const preferredHistory = useRef([]);
   const rejectedHistory = useRef([]);
   const phaseTimers = useRef([]);
+  const candidateQueueRef = useRef([]);
+  const queueFillInFlight = useRef(false);
+
+  useEffect(() => {
+    candidateQueueRef.current = candidateQueue;
+  }, [candidateQueue]);
 
   const clearPhaseTimers = useCallback(() => {
     phaseTimers.current.forEach((timer) => clearTimeout(timer));
@@ -84,6 +93,56 @@ export default function App() {
       ),
     [latentMap]
   );
+
+  const generateCandidateSets = useCallback(
+    async (count) => {
+      const batches = [];
+
+      for (let i = 0; i < count; i += 1) {
+        batches.push(
+          await generateCandidateBatch({
+            count: 3,
+            latentParamsByDigit: getBaseLatentParamsByDigit(),
+          })
+        );
+      }
+
+      return batches;
+    },
+    [getBaseLatentParamsByDigit]
+  );
+
+  const topUpCandidateQueue = useCallback(async (knownQueueLength = candidateQueueRef.current.length) => {
+    const missing = Math.max(0, PREFERENCE_BATCH_TARGET - 1 - knownQueueLength);
+    if (!missing || queueFillInFlight.current) return;
+
+    queueFillInFlight.current = true;
+    try {
+      const nextBatches = await generateCandidateSets(missing);
+      setCandidateQueue((queue) => [...queue, ...nextBatches]);
+    } finally {
+      queueFillInFlight.current = false;
+    }
+  }, [generateCandidateSets]);
+
+  const advanceCandidateBatch = useCallback(async () => {
+    const queued = candidateQueueRef.current;
+
+    setSelectedIdx(null);
+    setRejectedIdxs([]);
+
+    if (queued.length > 0) {
+      const [nextBatch, ...rest] = queued;
+      setCandidates(nextBatch);
+      setCandidateQueue(rest);
+      void topUpCandidateQueue(rest.length);
+      return;
+    }
+
+    const [nextBatch, ...rest] = await generateCandidateSets(PREFERENCE_BATCH_TARGET);
+    setCandidates(nextBatch || []);
+    setCandidateQueue(rest);
+  }, [generateCandidateSets, topUpCandidateQueue]);
 
   const updateDiagnostics = useCallback((rm, nextEvalBaseSamples, nextEvalTunedSamples) => {
     const baseScores = nextEvalBaseSamples.map((s) => scoreCandidate(rm, s));
@@ -109,16 +168,9 @@ export default function App() {
 
   const makeNewCandidates = useCallback(async () => {
     clearPhaseTimers();
-    setCandidates(
-      await generateCandidateBatch({
-        count: 3,
-        latentParamsByDigit: getBaseLatentParamsByDigit(),
-      })
-    );
-    setSelectedIdx(null);
-    setRejectedIdxs([]);
     setTrainingPhase("idle");
-  }, [clearPhaseTimers, getBaseLatentParamsByDigit]);
+    await advanceCandidateBatch();
+  }, [advanceCandidateBatch, clearPhaseTimers]);
 
   const refreshVisibleSamples = useCallback(
     async (rm = rewardModel, digit = sampleDigit, policy = latentPolicy) => {
@@ -149,7 +201,7 @@ export default function App() {
   );
 
   const handleChoice = useCallback(
-    (idx) => {
+    async (idx) => {
       if (selectedIdx !== null || !candidates[idx]) return;
 
       clearPhaseTimers();
@@ -183,55 +235,37 @@ export default function App() {
       const avgLoss = totalLoss / rejected.length;
       const avgMargin = totalMargin / rejected.length;
 
-      phaseTimers.current = [
-        setTimeout(() => {
-          setTrainingPhase("reward_training");
-          setLossHistory((h) => [...h.slice(-49), avgLoss]);
-          setMarginHistory((h) => [...h.slice(-49), avgMargin]);
-          setCorrectComparisons((c) => c + newCorrect);
-          setComparisons((c) => c + rejected.length);
-          setRewardModel(rmCopy);
-          setRankings((r) => r + 1);
-        }, 220),
+      setTrainingPhase("reward_training");
+      setLossHistory((h) => [...h.slice(-49), avgLoss]);
+      setMarginHistory((h) => [...h.slice(-49), avgMargin]);
+      setCorrectComparisons((c) => c + newCorrect);
+      setComparisons((c) => c + rejected.length);
+      setRewardModel(rmCopy);
+      setRankings((r) => r + 1);
 
-        setTimeout(() => {
-          setTrainingPhase("policy_training");
-          updateLatentPolicyFromRewardScores(latentPolicy, rmCopy, preferred.digit)
-            .then((nextLatentPolicy) => {
-              setLatentPolicy(nextLatentPolicy);
-              phaseTimers.current.push(
-                setTimeout(async () => {
-                  setTrainingPhase("refreshing_samples");
-                  setCandidates(await generateCandidateBatch({ count: 3 }));
-                  setSelectedIdx(null);
-                  setRejectedIdxs([]);
+      try {
+        setTrainingPhase("policy_training");
+        const nextLatentPolicy = await updateLatentPolicyFromRewardScores(
+          latentPolicy,
+          rmCopy,
+          preferred.digit
+        );
+        setLatentPolicy(nextLatentPolicy);
 
-                  const nextVisibleTuned = await generateTunedSamplesForDigit(
-                    rmCopy,
-                    sampleDigit,
-                    SAMPLE_COUNT,
-                    nextLatentPolicy
-                  );
-                  setTunedSamples(nextVisibleTuned);
+        setTrainingPhase("refreshing_samples");
+        await advanceCandidateBatch();
 
-                  const nextEvalTuned = await generateEvaluationTunedSamples(
-                    rmCopy,
-                    2,
-                    nextLatentPolicy
-                  );
-                  updateDiagnostics(rmCopy, evalBaseSamples, nextEvalTuned);
-                }, 340),
-                setTimeout(() => {
-                  setTrainingPhase("complete");
-                }, 680)
-              );
-            })
-            .catch((error) => {
-              setDecoderError(error.message);
-              setTrainingPhase("complete");
-            });
-        }, 560),
-      ];
+        const [nextVisibleTuned, nextEvalTuned] = await Promise.all([
+          generateTunedSamplesForDigit(rmCopy, sampleDigit, SAMPLE_COUNT, nextLatentPolicy),
+          generateEvaluationTunedSamples(rmCopy, 2, nextLatentPolicy),
+        ]);
+        setTunedSamples(nextVisibleTuned);
+        updateDiagnostics(rmCopy, evalBaseSamples, nextEvalTuned);
+        setTrainingPhase("complete");
+      } catch (error) {
+        setDecoderError(error.message);
+        setTrainingPhase("complete");
+      }
     },
     [
       selectedIdx,
@@ -242,6 +276,7 @@ export default function App() {
       evalBaseSamples,
       updateDiagnostics,
       clearPhaseTimers,
+      advanceCandidateBatch,
     ]
   );
 
@@ -274,36 +309,40 @@ export default function App() {
         const latentParamsByDigit = Object.fromEntries(
           Array.from({ length: 10 }, (_, digit) => [digit, getBaseLatentParams(nextLatentMap, digit)])
         );
-        const [nextCandidates, nextBaseSamples, nextTunedSamples, nextEvalBase, nextEvalTuned] =
-          await Promise.all([
-            generateCandidateBatch({ count: 3, latentParamsByDigit }),
-            generateSamplesForDigit(
-              initialDigit,
-              SAMPLE_COUNT,
-              initialBaseParams.mean,
-              initialBaseParams.std
-            ),
-            generateSamplesForDigit(
-              initialDigit,
-              SAMPLE_COUNT,
-              initialBaseParams.mean,
-              initialBaseParams.std
-            ),
-            generateEvaluationBaseSamples(2, latentParamsByDigit),
-            generateEvaluationBaseSamples(2, latentParamsByDigit),
-          ]);
+        const candidateBatches = await generateCandidateSets(PREFERENCE_BATCH_TARGET);
 
         if (cancelled) return;
 
         setLatentMap(nextLatentMap);
         setRewardModel(rm);
         setLatentPolicy(policy);
-        setCandidates(nextCandidates);
+        setCandidates(candidateBatches[0] || []);
+        setCandidateQueue(candidateBatches.slice(1));
+        setDecoderStatus("ready");
+
+        const [nextBaseSamples, nextTunedSamples, nextEvalBase, nextEvalTuned] = await Promise.all([
+          generateSamplesForDigit(
+            initialDigit,
+            SAMPLE_COUNT,
+            initialBaseParams.mean,
+            initialBaseParams.std
+          ),
+          generateSamplesForDigit(
+            initialDigit,
+            SAMPLE_COUNT,
+            initialBaseParams.mean,
+            initialBaseParams.std
+          ),
+          generateEvaluationBaseSamples(2, latentParamsByDigit),
+          generateEvaluationBaseSamples(2, latentParamsByDigit),
+        ]);
+
+        if (cancelled) return;
+
         setBaseSamples(nextBaseSamples);
         setTunedSamples(nextTunedSamples);
         setEvalBaseSamples(nextEvalBase);
         updateDiagnostics(rm, nextEvalBase, nextEvalTuned);
-        setDecoderStatus("ready");
       } catch (error) {
         if (cancelled) return;
         setDecoderError(error.message);
@@ -316,7 +355,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [updateDiagnostics]);
+  }, [generateCandidateSets, updateDiagnostics]);
 
   const handleRefreshSamples = () => {
     void refreshVisibleSamples();
@@ -340,9 +379,9 @@ export default function App() {
     const nextLatentPolicy = createLatentPolicy(latentMap);
     const baseParams = getBaseLatentParams(latentMap, sampleDigit);
     const latentParamsByDigit = getBaseLatentParamsByDigit();
-    const [nextCandidates, nextBaseSamples, nextTunedSamples, nextEvalBase, nextEvalTuned] =
+    const [candidateBatches, nextBaseSamples, nextTunedSamples, nextEvalBase, nextEvalTuned] =
       await Promise.all([
-        generateCandidateBatch({ count: 3, latentParamsByDigit }),
+        generateCandidateSets(PREFERENCE_BATCH_TARGET),
         generateSamplesForDigit(sampleDigit, SAMPLE_COUNT, baseParams.mean, baseParams.std),
         generateSamplesForDigit(sampleDigit, SAMPLE_COUNT, baseParams.mean, baseParams.std),
         generateEvaluationBaseSamples(2, latentParamsByDigit),
@@ -361,7 +400,8 @@ export default function App() {
     setCorrectComparisons(0);
     setLossHistory([]);
     setMarginHistory([]);
-    setCandidates(nextCandidates);
+    setCandidates(candidateBatches[0] || []);
+    setCandidateQueue(candidateBatches.slice(1));
     setSelectedIdx(null);
     setRejectedIdxs([]);
     setBaseSamples(nextBaseSamples);
@@ -457,8 +497,11 @@ export default function App() {
           candidates={candidates}
           selectedIdx={selectedIdx}
           rejectedIdxs={rejectedIdxs}
-          onChoice={handleChoice}
+          onChoice={(idx) => {
+            void handleChoice(idx);
+          }}
           onNewCandidates={makeNewCandidates}
+          queueDepth={candidateQueue.length}
         />
 
         <TraitAnalyzer rankings={rankings} traitAnalysis={traitAnalysis} />

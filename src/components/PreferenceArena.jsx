@@ -1,9 +1,13 @@
+import { useEffect, useState } from "react";
+
 function DigitImage({
   candidate,
   size = 64,
   onClick,
+  onPress,
   selected,
   rejected,
+  pressed = false,
   muted = false,
   showLabel = false,
   label = "",
@@ -13,6 +17,7 @@ function DigitImage({
       <img
         src={candidate.dataUrl}
         alt={`Generated ${candidate.digit}`}
+        onPointerDown={onPress}
         onClick={onClick}
         style={{
           width: size,
@@ -25,8 +30,11 @@ function DigitImage({
             : "1px solid #2a2d35",
           cursor: onClick ? "pointer" : "default",
           opacity: rejected || muted ? 0.45 : 1,
-          transform: selected ? "scale(1.08)" : "scale(1)",
-          transition: "all 0.22s ease",
+          transform: selected ? "scale(1.08)" : pressed ? "scale(1.04)" : "scale(1)",
+          boxShadow: pressed
+            ? "0 0 0 4px rgba(79, 70, 229, 0.5), 0 0 24px rgba(79, 70, 229, 0.45)"
+            : "none",
+          transition: "all 0.12s ease",
           imageRendering: "pixelated",
           background: "#020617",
           display: "block",
@@ -55,7 +63,20 @@ export default function PreferenceArena({
   rejectedIdxs,
   onChoice,
   onNewCandidates,
+  queueDepth = 0,
 }) {
+  const [pressedIdx, setPressedIdx] = useState(null);
+
+  useEffect(() => {
+    if (pressedIdx === null) return undefined;
+
+    const timer = setTimeout(() => {
+      setPressedIdx(null);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [pressedIdx]);
+
   return (
     <div
       style={{
@@ -98,6 +119,19 @@ export default function PreferenceArena({
           >
             TRAINING ACTION
           </span>
+
+          <span
+            style={{
+              fontSize: 10,
+              padding: "2px 8px",
+              background: "#1e293b",
+              color: "#94a3b8",
+              borderRadius: 10,
+              fontFamily: "'IBM Plex Mono', monospace",
+            }}
+          >
+            next ready: {queueDepth > 0 ? "yes" : "no"}
+          </span>
         </div>
 
         <button
@@ -118,7 +152,8 @@ export default function PreferenceArena({
       </div>
 
       <p style={{ fontSize: 13, color: "#cbd5e1", margin: "0 0 12px 0" }}>
-        Which output do you prefer? Click or press 1 / 2 / 3.
+        Which output do you prefer? Click or press 1 / 2 / 3. One next prompt is kept warm in the
+        background.
       </p>
 
       <div
@@ -126,20 +161,42 @@ export default function PreferenceArena({
           display: "flex",
           justifyContent: "center",
           gap: 28,
+          minHeight: 120,
+          alignItems: "center",
         }}
       >
-        {candidates.map((candidate, i) => (
-          <DigitImage
-            key={candidate.id}
-            candidate={candidate}
-            size={96}
-            onClick={() => onChoice(i)}
-            selected={selectedIdx === i}
-            rejected={rejectedIdxs.includes(i)}
-            showLabel
-            label={String(i + 1)}
-          />
-        ))}
+        {candidates.length > 0 ? (
+          candidates.map((candidate, i) => (
+            <DigitImage
+              key={candidate.id}
+              candidate={candidate}
+              size={96}
+              onPress={() => {
+                setPressedIdx(i);
+              }}
+              onClick={() => {
+                setPressedIdx(i);
+                onChoice(i);
+              }}
+              selected={selectedIdx === i}
+              rejected={rejectedIdxs.includes(i)}
+              pressed={pressedIdx === i}
+              showLabel
+              label={String(i + 1)}
+            />
+          ))
+        ) : (
+          <div
+            style={{
+              color: "#64748b",
+              fontSize: 11,
+              fontFamily: "'IBM Plex Mono', monospace",
+              textTransform: "uppercase",
+            }}
+          >
+            warming first prompt...
+          </div>
+        )}
       </div>
     </div>
   );
