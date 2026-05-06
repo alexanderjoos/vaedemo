@@ -1,20 +1,12 @@
 {
   "latent_dim": 2,
   "image_size": 64,
-  "digits": [
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9
-  ],
   "output_range": [
     -1,
     1
+  ],
+  "conditioning": "none",
+  "decoder_inputs": [
+    "z"
   ]
 }
