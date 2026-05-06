@@ -1,20 +1,27 @@
 # Preference Reward Model VAE
 
-This demo is for showing what a learned reward model can do before you go back and retrain a base model.
+This demo visualizes the reward-modeling stage of RLHF: it shows how human preferences shift sampling away from the original prior before those preferences are used to retrain the base model.
 
-In standard RLHF-style pipelines, a reward model is trained from human preferences and then used to optimize the main model. This project only demonstrates the first part of that story live in the browser:
+In standard RLHF-style pipelines, a reward model is trained from human preferences and then used to optimize the main model. This project isolates that intermediate stage live in the browser:
 
 - the VAE is trained offline first
 - the decoder stays frozen during the demo
 - the user gives pairwise preferences
 - the browser updates a small reward model
-- the sampler over latent space shifts toward regions the reward model prefers
+- the sampler over latent space shifts away from the original prior based on the learned reward signal
 
 So this is best understood as a preference-reward-model demo, not full RLHF fine-tuning.
 
 The latent view is inspired by the [CS4782 MNIST viewer](https://www.cs.cornell.edu/courses/cs4782/2026sp/demos/vae/vae_viewer.html): click or drag to move around a 2D latent space and decode a digit at that point. The purple heatmap shows where the current preference-guided sampler is concentrating probability mass while the decoder itself stays fixed.
+## Quickstart
 
-## Run the Demo
+If you only want to run the demo, no training is required. The exported model files are already included in `public/models/`.
+
+Prerequisites:
+
+- Node.js 20+ and npm
+
+Run:
 
 ```bash
 npm install
