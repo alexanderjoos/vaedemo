@@ -443,7 +443,7 @@ export default function LatentSpacePane({
           <div style={{ color: "#e2e8f0", fontSize: 13, fontWeight: 600 }}>Generated image</div>
 
           <div style={{ color: "#64748b", fontSize: 11, lineHeight: 1.45 }}>
-            Decode at the cursor position z in latent space (Cornell-style unconditional VAE).
+            Decode at the cursor position z in latent space.
           </div>
 
           <div
