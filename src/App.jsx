@@ -42,7 +42,6 @@ export default function App() {
   const [candidateQueue, setCandidateQueue] = useState([]);
   const [selectedIdx, setSelectedIdx] = useState(null);
   const [rejectedIdxs, setRejectedIdxs] = useState([]);
-  const [highlightDigit, setHighlightDigit] = useState(7);
   const [baseSamples, setBaseSamples] = useState([]);
   const [tunedSamples, setTunedSamples] = useState([]);
   const [evalBaseSamples, setEvalBaseSamples] = useState([]);
@@ -342,11 +341,11 @@ export default function App() {
             color: "#f1f5f9",
           }}
         >
-          Variational Autoencoder · MNIST · 2D latent space
+          RLHF Demo
         </h1>
 
         <span style={{ fontSize: 12, color: "#64748b" }}>
-          RLHF shifts the learned Gaussian sampler over z (decoder stays frozen).
+          Unconditional MNIST VAE with a frozen decoder and preference-tuned latent sampling.
         </span>
 
         <div
@@ -359,7 +358,7 @@ export default function App() {
         >
           {decoderStatus === "loading" && "Loading ONNX decoder..."}
           {decoderStatus === "ready" &&
-            "Unconditional decode(z). Training runs only when you pick a preferred candidate."}
+            "Decoder ready. Each ranking updates the reward model and shifts the latent sampler."}
           {decoderStatus === "error" && `Decoder load failed: ${decoderError}`}
         </div>
       </div>
@@ -409,7 +408,6 @@ export default function App() {
         latentPane={
           <LatentSpacePane
             latentMap={latentMap}
-            sampleDigit={highlightDigit}
             latentPolicy={latentPolicy}
             candidates={candidates}
             selectedIdx={selectedIdx}
@@ -417,14 +415,12 @@ export default function App() {
             trainingPhase={trainingPhase}
           />
         }
-        sampleDigit={highlightDigit}
         baseSamples={baseSamples}
         tunedSamples={tunedSamples}
         onRefreshSamples={() => {
           void refreshVisibleSamples();
           void refreshEvaluationAndAnalyzers();
         }}
-        onSampleDigitChange={setHighlightDigit}
       />
     </div>
   );

@@ -96,9 +96,8 @@ function PriorCircles({ mean, std, size, extent, stroke, dasharray }) {
   ));
 }
 
-function PointCloud({ points, digit, size, extent, emphasisDigit }) {
+function PointCloud({ points, digit, size, extent }) {
   const fill = DIGIT_COLORS[digit];
-  const emphasize = emphasisDigit === digit;
 
   return points.map((point, i) => {
     const [x, y] = project(point, size, extent);
@@ -107,15 +106,15 @@ function PointCloud({ points, digit, size, extent, emphasisDigit }) {
         key={`${digit}-${i}`}
         cx={x}
         cy={y}
-        r={emphasize ? 2.4 : 2}
+        r={2}
         fill={fill}
-        opacity={emphasize ? 0.42 : 0.18}
+        opacity={0.2}
       />
     );
   });
 }
 
-function DigitMarker({ digit, point, size, extent, selected = false }) {
+function DigitMarker({ digit, point, size, extent }) {
   const [x, y] = project(point, size, extent);
   const fill = DIGIT_COLORS[digit];
 
@@ -124,8 +123,8 @@ function DigitMarker({ digit, point, size, extent, selected = false }) {
       <circle
         cx={x}
         cy={y}
-        r={selected ? 8.5 : 6.5}
-        fill={selected ? fill : "#111827"}
+        r={6.5}
+        fill="#111827"
         stroke={fill}
         strokeWidth="1.4"
       />
@@ -133,7 +132,7 @@ function DigitMarker({ digit, point, size, extent, selected = false }) {
         x={x}
         y={y + 3.5}
         textAnchor="middle"
-        fill={selected ? "#020617" : fill}
+        fill={fill}
         fontSize="9"
         fontFamily="'IBM Plex Mono', monospace"
         fontWeight="700"
@@ -163,7 +162,6 @@ function pickPoint(event, size, extent) {
 
 export default function LatentSpacePane({
   latentMap,
-  sampleDigit,
   latentPolicy,
   candidates,
   selectedIdx,
@@ -343,7 +341,6 @@ export default function LatentSpacePane({
                 digit={entry.digit}
                 size={plotSize}
                 extent={extent}
-                emphasisDigit={sampleDigit}
               />
             ))}
 
@@ -354,7 +351,6 @@ export default function LatentSpacePane({
                 point={entry.mean}
                 size={plotSize}
                 extent={extent}
-                selected={entry.digit === sampleDigit}
               />
             ))}
 
@@ -407,7 +403,7 @@ export default function LatentSpacePane({
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  color: digit === sampleDigit ? "#e2e8f0" : "#94a3b8",
+                  color: "#94a3b8",
                   fontFamily: "'IBM Plex Mono', monospace",
                 }}
               >

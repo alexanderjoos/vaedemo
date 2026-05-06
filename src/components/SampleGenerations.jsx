@@ -24,11 +24,9 @@ function DigitImage({ candidate, size = 64 }) {
 
 export default function SampleGenerations({
   latentPane,
-  sampleDigit,
   baseSamples,
   tunedSamples,
   onRefreshSamples,
-  onSampleDigitChange,
 }) {
   const generations = (
     <div
@@ -89,34 +87,6 @@ export default function SampleGenerations({
         >
           refresh samples
         </button>
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-        <span style={{ fontSize: 12, color: "#64748b", marginRight: 4 }}>
-          Highlight digit cluster:
-        </span>
-
-        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => (
-          <button
-            key={d}
-            type="button"
-            onClick={() => onSampleDigitChange(d)}
-            style={{
-              width: 26,
-              height: 24,
-              fontSize: 12,
-              fontWeight: 600,
-              border: "none",
-              borderRadius: 5,
-              cursor: "pointer",
-              fontFamily: "'IBM Plex Mono', monospace",
-              background: sampleDigit === d ? "#4f46e5" : "#1e293b",
-              color: sampleDigit === d ? "#fff" : "#64748b",
-            }}
-          >
-            {d}
-          </button>
-        ))}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14 }}>
