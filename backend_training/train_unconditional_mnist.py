@@ -7,8 +7,12 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 
-from data.mnist_rgb import MnistRgb64
-from models.vae import VAE, vae_loss
+try:
+    from backend_training.data.mnist_rgb import MnistRgb64
+    from backend_training.models.vae import VAE, vae_loss
+except ModuleNotFoundError:
+    from data.mnist_rgb import MnistRgb64
+    from models.vae import VAE, vae_loss
 
 
 def parse_args():

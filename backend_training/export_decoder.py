@@ -6,13 +6,17 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 
-from data.mnist_rgb import MnistRgb64
-from models.vae import VAE
+try:
+    from backend_training.data.mnist_rgb import MnistRgb64
+    from backend_training.models.vae import VAE
+except ModuleNotFoundError:
+    from data.mnist_rgb import MnistRgb64
+    from models.vae import VAE
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Export the unconditional MNIST VAE decoder to ONNX.")
-    parser.add_argument("--checkpoint", type=Path, default=Path("backend_training/checkpoints/mnist_vae.pt"))
+    parser.add_argument("--checkpoint", type=Path, default=Path("backend_training/checkpoints/vae.pt"))
     parser.add_argument("--onnx-out", type=Path, default=Path("public/models/decoder.onnx"))
     parser.add_argument("--metadata-out", type=Path, default=Path("public/models/metadata.json"))
     parser.add_argument("--latent-map-out", type=Path, default=Path("public/models/latent_map.json"))

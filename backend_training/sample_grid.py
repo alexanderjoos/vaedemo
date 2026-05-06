@@ -4,12 +4,15 @@ from pathlib import Path
 import torch
 from torchvision.utils import save_image
 
-from models.vae import VAE
+try:
+    from backend_training.models.vae import VAE
+except ModuleNotFoundError:
+    from models.vae import VAE
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Sample a latent grid from the trained VAE decoder.")
-    parser.add_argument("--checkpoint", type=Path, default=Path("backend_training/checkpoints/mnist_vae.pt"))
+    parser.add_argument("--checkpoint", type=Path, default=Path("backend_training/checkpoints/vae.pt"))
     parser.add_argument("--out", type=Path, default=Path("backend_training/checkpoints/sample_grid.png"))
     parser.add_argument("--grid-size", type=int, default=9)
     parser.add_argument("--extent", type=float, default=2.5)
