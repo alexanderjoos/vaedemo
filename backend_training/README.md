@@ -1,4 +1,4 @@
-# Offline cVAE Training
+# Offline VAE Training
 
 Install the Python dependencies in your preferred environment:
 
@@ -6,7 +6,7 @@ Install the Python dependencies in your preferred environment:
 pip install torch torchvision onnx
 ```
 
-Train the 2D conditional VAE:
+Train the 2D unconditional VAE:
 
 ```bash
 python backend_training/train_cvae.py --epochs 20
@@ -20,12 +20,13 @@ python backend_training/export_decoder.py
 
 This writes:
 
-- `backend_training/checkpoints/cvae.pt`
+- `backend_training/checkpoints/vae.pt`
 - `public/models/decoder.onnx`
 - `public/models/metadata.json`
+- `public/models/latent_map.json`
 
 Sample a generated latent grid for visual inspection:
 
 ```bash
-python backend_training/sample_grid.py --digit 7 --out backend_training/checkpoints/sample_grid_digit7.png
+python backend_training/sample_grid.py --out backend_training/checkpoints/sample_grid.png
 ```

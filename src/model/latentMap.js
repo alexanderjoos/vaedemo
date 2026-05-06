@@ -50,3 +50,17 @@ export function getLatentMapDigit(latentMap, digit) {
 export function getLatentMapExtent(latentMap) {
   return Math.max(2.8, latentMap?.extent || 2.8);
 }
+
+export function getGlobalLatentParams(latentMap) {
+  if (latentMap?.global_mean && latentMap?.global_std) {
+    return {
+      mean: [...latentMap.global_mean],
+      std: latentMap.global_std,
+    };
+  }
+
+  return {
+    mean: [0, 0],
+    std: 0.9,
+  };
+}

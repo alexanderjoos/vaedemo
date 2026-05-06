@@ -1,8 +1,8 @@
-# VAE RLHF Digit Demo
+# RLHF Demo
 
-An interactive RLHF-style digit generation demo built with React, Vite, a browser ONNX decoder, and an image-based reward model.
+An interactive RLHF-style image generation demo built with React, Vite, a browser ONNX decoder, and an image-based reward model.
 
-The frontend lets you pick preferred generated digits. Each preference updates a reward model, updates a 2D latent policy, and refreshes samples from a frozen conditional VAE decoder.
+The frontend lets you pick preferred generated samples. Each preference updates a reward model, shifts a 2D latent sampling policy, and refreshes samples from a frozen unconditional VAE decoder.
 
 ## Run the Demo
 
@@ -36,7 +36,7 @@ backend_training/.venv/bin/python backend_training/export_decoder.py
 For a quick visual check:
 
 ```bash
-backend_training/.venv/bin/python backend_training/sample_grid.py --digit 7 --out backend_training/checkpoints/sample_grid_digit7.png --device cpu
+backend_training/.venv/bin/python backend_training/sample_grid.py --out backend_training/checkpoints/sample_grid.png --device cpu
 ```
 
 ## Train in Colab
@@ -59,7 +59,7 @@ metadata.json
 latent_map.json
 ```
 
-The RLHF portion stays local in the browser. Colab is only for training and exporting the base decoder.
+The RLHF portion stays local in the browser. Colab is only for training and exporting the base decoder plus latent-map asset.
 
 ## Local RLHF Loop
 
@@ -77,7 +77,8 @@ Then open the local Vite URL and use the preference arena. Each click updates th
 - `src/model/decoder.js`: loads `decoder.onnx` with `onnxruntime-web` and returns image candidates.
 - `src/model/rewardModel.js`: image-based preference reward model.
 - `src/model/latentPolicy.js`: reward-score-driven 2D latent policy updates.
+- `src/model/latentMap.js`: latent embedding asset loader for the CS4782-style visualization.
 - `src/model/analyzers.js`: post-hoc diagnostic image analyzers only.
-- `backend_training/`: offline PyTorch cVAE training and ONNX export.
+- `backend_training/`: offline PyTorch VAE training and ONNX export.
 
 Analyzer scores are never passed into the reward model or latent policy.

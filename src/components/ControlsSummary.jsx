@@ -119,7 +119,7 @@ export default function ControlsSummary({
             lineHeight: 1.6,
           }}
         >
-          No strong trait signal yet. Keep ranking mixed-digit outputs.
+          No strong trait signal yet. Keep ranking samples from the tuned latent sampler.
         </div>
       )}
     </div>

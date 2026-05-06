@@ -6,13 +6,13 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 
-from data.colored_mnist import ColoredMNIST
-from models.cvae import ConditionalVAE
+from data.mnist_rgb import MnistRgb64
+from models.vae import VAE
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Export the cVAE decoder to ONNX.")
-    parser.add_argument("--checkpoint", type=Path, default=Path("backend_training/checkpoints/cvae.pt"))
+    parser = argparse.ArgumentParser(description="Export the unconditional MNIST VAE decoder to ONNX.")
+    parser.add_argument("--checkpoint", type=Path, default=Path("backend_training/checkpoints/mnist_vae.pt"))
     parser.add_argument("--onnx-out", type=Path, default=Path("public/models/decoder.onnx"))
     parser.add_argument("--metadata-out", type=Path, default=Path("public/models/metadata.json"))
     parser.add_argument("--latent-map-out", type=Path, default=Path("public/models/latent_map.json"))
@@ -20,7 +20,6 @@ def parse_args():
     parser.add_argument("--latent-map-samples-per-digit", type=int, default=250)
     parser.add_argument("--latent-map-batch-size", type=int, default=256)
     parser.add_argument("--opset", type=int, default=17)
-
     return parser.parse_args()
 
 
@@ -50,7 +49,7 @@ def export_latent_map(model, args, image_size):
     random.seed(7)
     torch.manual_seed(7)
 
-    dataset = ColoredMNIST(
+    dataset = MnistRgb64(
         root=args.data_dir,
         train=True,
         image_size=image_size,
@@ -67,15 +66,13 @@ def export_latent_map(model, args, image_size):
     points_by_digit = [[] for _ in range(10)]
 
     with torch.no_grad():
-        for images, labels, label_ids in loader:
-            mu, _ = model.encode(images, labels)
+        for images, label_ids in loader:
+            mu, _ = model.encode(images)
 
             for idx, label_id in enumerate(label_ids.tolist()):
                 if len(points_by_digit[label_id]) >= args.latent_map_samples_per_digit:
                     continue
-
-                point = mu[idx].tolist()
-                points_by_digit[label_id].append(point)
+                points_by_digit[label_id].append(mu[idx].tolist())
 
             if all(len(points) >= args.latent_map_samples_per_digit for points in points_by_digit):
                 break
@@ -84,11 +81,20 @@ def export_latent_map(model, args, image_size):
         raise RuntimeError("Could not collect latent points for every digit.")
 
     stats = compute_digit_stats(points_by_digit)
+    all_points = torch.tensor(
+        [point for digit_points in points_by_digit for point in digit_points],
+        dtype=torch.float32,
+    )
+    global_mean = all_points.mean(dim=0)
+    centered = all_points - global_mean
+    global_std = torch.sqrt(torch.mean(torch.sum(centered.pow(2), dim=1)) / 2)
     extent = max(abs(value) for item in stats for point in item["points"] for value in point)
 
     payload = {
         "latent_dim": 2,
         "extent": round(float(max(2.8, extent + 0.35)), 5),
+        "global_mean": [round(float(global_mean[0]), 5), round(float(global_mean[1]), 5)],
+        "global_std": round(float(torch.clamp(global_std, min=0.25)), 5),
         "digits": stats,
     }
 
@@ -103,7 +109,7 @@ def main():
     latent_dim = int(checkpoint.get("latent_dim", 2))
     image_size = int(checkpoint.get("image_size", 64))
 
-    model = ConditionalVAE(latent_dim=latent_dim)
+    model = VAE(latent_dim=latent_dim)
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
 
@@ -111,18 +117,14 @@ def main():
     args.metadata_out.parent.mkdir(parents=True, exist_ok=True)
 
     z = torch.zeros(1, latent_dim, dtype=torch.float32)
-    y = torch.zeros(1, 10, dtype=torch.float32)
-    y[0, 0] = 1.0
-
     torch.onnx.export(
         model.decoder,
-        (z, y),
+        (z,),
         args.onnx_out,
-        input_names=["z", "digit_onehot"],
+        input_names=["z"],
         output_names=["image"],
         dynamic_axes={
             "z": {0: "batch"},
-            "digit_onehot": {0: "batch"},
             "image": {0: "batch"},
         },
         opset_version=args.opset,
@@ -131,8 +133,9 @@ def main():
     metadata = {
         "latent_dim": latent_dim,
         "image_size": image_size,
-        "digits": list(range(10)),
         "output_range": [-1, 1],
+        "conditioning": "none",
+        "decoder_inputs": ["z"],
     }
     args.metadata_out.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
     export_latent_map(model, args, image_size)

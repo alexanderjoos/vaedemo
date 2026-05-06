@@ -3,45 +3,31 @@ import {
   sampleLatent,
 } from "./generator";
 import { decodeCandidate } from "./decoder";
-import { getLatentMapDigit } from "./latentMap";
+import { getGlobalLatentParams } from "./latentMap";
 import { scoreCandidate } from "./rewardModel";
 
-function defaultEntry(digit) {
-  const angle = (digit / 10) * Math.PI * 2 - Math.PI / 2;
+export function createLatentPolicy(latentMap = null) {
+  const g = getGlobalLatentParams(latentMap || {});
   return {
-    mean: [Math.cos(angle) * 1.6, Math.sin(angle) * 1.6],
-    std: 0.44,
-    baseMean: [Math.cos(angle) * 1.6, Math.sin(angle) * 1.6],
-    baseStd: 0.44,
+    mean: [...g.mean],
+    std: g.std,
+    baseMean: [...g.mean],
+    baseStd: g.std,
   };
 }
 
-export function createLatentPolicy(latentMap = null) {
-  return Array.from({ length: 10 }, (_, digit) => {
-    const entry = getLatentMapDigit(latentMap, digit);
-    const fallback = defaultEntry(digit);
+export async function updateLatentPolicyFromRewardScores(policy, rm, poolSize = 36) {
+  const next = {
+    mean: [...policy.mean],
+    std: policy.std,
+    baseMean: [...policy.baseMean],
+    baseStd: policy.baseStd,
+  };
 
-    return {
-      mean: entry?.mean ? [...entry.mean] : [...fallback.mean],
-      std: entry?.std || fallback.std,
-      baseMean: entry?.mean ? [...entry.mean] : [...fallback.baseMean],
-      baseStd: entry?.std || fallback.baseStd,
-    };
-  });
-}
-
-export async function updateLatentPolicyFromRewardScores(policy, rm, digit, poolSize = 36) {
-  const next = policy.map((entry) => ({
-    mean: [...entry.mean],
-    std: entry.std,
-  }));
-
-  const entry = next[digit];
   const candidates = await Promise.all(
     Array.from({ length: poolSize }, () =>
       decodeCandidate({
-        digit,
-        z: sampleLatent(entry.mean, entry.std),
+        z: sampleLatent(next.mean, next.std),
         source: "policy_probe",
       })
     )
@@ -61,31 +47,30 @@ export async function updateLatentPolicyFromRewardScores(policy, rm, digit, pool
     [0, 0]
   );
 
-  entry.mean = [
-    entry.mean[0] * 0.72 + target[0] * 0.28,
-    entry.mean[1] * 0.72 + target[1] * 0.28,
+  next.mean = [
+    next.mean[0] * 0.72 + target[0] * 0.28,
+    next.mean[1] * 0.72 + target[1] * 0.28,
   ];
-  entry.std = Math.max(0.36, entry.std * 0.985);
+  next.std = Math.max(0.36, next.std * 0.985);
 
   return next;
 }
 
-export function sampleBaseLatentDistribution(count = 90) {
-  return Array.from({ length: count }, () => sampleLatent([0, 0], 0.82));
+export function sampleBaseLatentDistribution(latentMap, count = 90) {
+  const g = getGlobalLatentParams(latentMap || {});
+  return Array.from({ length: count }, () => sampleLatent(g.mean, g.std));
 }
 
-export function sampleTunedLatentDistribution(policy, digit, count = 70) {
-  const entry = policy[digit];
-
-  return Array.from({ length: count }, () => sampleLatent(entry.mean, entry.std));
+export function sampleTunedLatentDistribution(policy, count = 70) {
+  return Array.from({ length: count }, () => sampleLatent(policy.mean, policy.std));
 }
 
-export function getLatentPolicyMean(policy, digit) {
-  return policy[digit]?.mean || [0, 0];
+export function getLatentPolicyMean(policy) {
+  return policy?.mean || [0, 0];
 }
 
-export function getLatentPolicyEntry(policy, digit) {
-  return policy[digit] || {
+export function getLatentPolicyEntry(policy) {
+  return policy || {
     mean: [0, 0],
     std: 0.62,
     baseMean: [0, 0],
@@ -93,37 +78,17 @@ export function getLatentPolicyEntry(policy, digit) {
   };
 }
 
-export function getBaseLatentParams(latentMap, digit) {
-  const entry = getLatentMapDigit(latentMap, digit);
-  if (entry) {
-    return {
-      mean: entry.mean,
-      std: entry.std,
-    };
-  }
-
-  return defaultEntry(digit);
+export function getBaseLatentParams(latentMap) {
+  return getGlobalLatentParams(latentMap);
 }
 
-export function transformLatentPoint(point, policyEntry) {
-  const baseMean = policyEntry.baseMean || [0, 0];
-  const baseStd = policyEntry.baseStd || 0.62;
-  const scale = (policyEntry.std || baseStd) / Math.max(baseStd, 1e-4);
-
-  return [
-    policyEntry.mean[0] + (point[0] - baseMean[0]) * scale,
-    policyEntry.mean[1] + (point[1] - baseMean[1]) * scale,
-  ];
-}
-
-export async function bestOfN(rm, digit, n = 24, policy = createLatentPolicy()) {
+export async function bestOfN(rm, n = 24, policy = createLatentPolicy()) {
   let best = null;
   let bestScore = -Infinity;
-  const policyEntry = policy[digit] || { mean: [0, 0], std: 0.62 };
+  const policyEntry = policy || createLatentPolicy();
 
   for (let i = 0; i < n; i += 1) {
     const candidate = await decodeCandidate({
-      digit,
       source: "tuned",
       z: sampleLatent(policyEntry.mean, policyEntry.std),
     });
@@ -139,18 +104,10 @@ export async function bestOfN(rm, digit, n = 24, policy = createLatentPolicy()) 
   return best;
 }
 
-export function generateTunedSamplesForDigit(rm, digit, count = SAMPLE_COUNT, policy) {
-  return Promise.all(Array.from({ length: count }, () => bestOfN(rm, digit, 32, policy)));
+export async function generateTunedSamples(rm, count = SAMPLE_COUNT, policy) {
+  return Promise.all(Array.from({ length: count }, () => bestOfN(rm, 32, policy)));
 }
 
-export async function generateEvaluationTunedSamples(rm, countPerDigit = 2, policy) {
-  const jobs = [];
-
-  for (let digit = 0; digit <= 9; digit += 1) {
-    for (let i = 0; i < countPerDigit; i += 1) {
-      jobs.push(bestOfN(rm, digit, 24, policy));
-    }
-  }
-
-  return Promise.all(jobs);
+export async function generateEvaluationTunedSamples(rm, count = 24, policy) {
+  return Promise.all(Array.from({ length: count }, () => bestOfN(rm, 24, policy)));
 }

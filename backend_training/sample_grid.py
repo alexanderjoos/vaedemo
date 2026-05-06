@@ -4,14 +4,13 @@ from pathlib import Path
 import torch
 from torchvision.utils import save_image
 
-from models.cvae import ConditionalVAE
+from models.vae import VAE
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Sample a latent grid from the trained cVAE decoder.")
-    parser.add_argument("--checkpoint", type=Path, default=Path("backend_training/checkpoints/cvae.pt"))
+    parser = argparse.ArgumentParser(description="Sample a latent grid from the trained VAE decoder.")
+    parser.add_argument("--checkpoint", type=Path, default=Path("backend_training/checkpoints/mnist_vae.pt"))
     parser.add_argument("--out", type=Path, default=Path("backend_training/checkpoints/sample_grid.png"))
-    parser.add_argument("--digit", type=int, default=7)
     parser.add_argument("--grid-size", type=int, default=9)
     parser.add_argument("--extent", type=float, default=2.5)
     parser.add_argument("--device", choices=["cpu", "cuda", "mps"], default="cpu")
@@ -27,7 +26,7 @@ def main():
     if latent_dim != 2:
         raise ValueError("sample_grid.py expects latent_dim=2.")
 
-    model = ConditionalVAE(latent_dim=latent_dim).to(args.device)
+    model = VAE(latent_dim=latent_dim).to(args.device)
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
 
@@ -37,11 +36,8 @@ def main():
         [torch.tensor([x, y], device=args.device) for y in ys for x in xs],
         dim=0,
     )
-    labels = torch.zeros(z.shape[0], 10, device=args.device)
-    labels[:, args.digit] = 1.0
-
     with torch.no_grad():
-        images = model.decode(z, labels)
+        images = model.decode(z)
         images = (images + 1.0) / 2.0
 
     args.out.parent.mkdir(parents=True, exist_ok=True)

@@ -12,9 +12,9 @@ let runQueue = Promise.resolve();
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-export async function loadDecoder() {
-  if (!sessionPromise) {
-    sessionPromise = ort.InferenceSession.create(DECODER_URL, {
+async function createSessionWithWeightsBundlingFallback() {
+  try {
+    return await ort.InferenceSession.create(DECODER_URL, {
       executionProviders: ["wasm"],
       externalData: [
         {
@@ -22,7 +22,17 @@ export async function loadDecoder() {
           data: DECODER_DATA_URL,
         },
       ],
-    }).catch((error) => {
+    });
+  } catch {
+    return ort.InferenceSession.create(DECODER_URL, {
+      executionProviders: ["wasm"],
+    });
+  }
+}
+
+export async function loadDecoder() {
+  if (!sessionPromise) {
+    sessionPromise = createSessionWithWeightsBundlingFallback().catch((error) => {
       sessionPromise = null;
       throw error;
     });
@@ -48,12 +58,17 @@ export async function loadDecoderMetadata() {
       .catch(() => ({
         latent_dim: 2,
         image_size: IMAGE_SIZE,
-        digits: [...Array(10).keys()],
         output_range: [-1, 1],
+        conditioning: "none",
+        decoder_inputs: ["z"],
       }));
   }
 
   return metadataPromise;
+}
+
+function isUnconditional(metadata) {
+  return metadata.conditioning === "none";
 }
 
 function oneHotDigit(digit) {
@@ -72,7 +87,6 @@ function tensorToImageData(
   const rgba = new Uint8ClampedArray(imageSize * imageSize * 4);
   const channels = 3;
   const channelSize = imageSize * imageSize;
-  const batchSize = tensor.dims?.[0] || 1;
   const batchOffset = batchIndex * channels * channelSize;
   const [lo, hi] = outputRange;
   const scale = hi - lo || 1;
@@ -105,28 +119,27 @@ function imageDataToDataUrl(imageData) {
   return canvas.toDataURL("image/png");
 }
 
-export async function decodeCandidate({
-  digit,
-  z = sampleLatent(),
-  source = "base",
-} = {}) {
+export async function decodeCandidate({ digit, z = sampleLatent(), source = "base" } = {}) {
   const metadata = await loadDecoderMetadata();
   const latentDim = metadata.latent_dim || 2;
   const imageSize = metadata.image_size || IMAGE_SIZE;
   const outputRange = metadata.output_range || [-1, 1];
 
   const zTensor = new ort.Tensor("float32", Float32Array.from(z), [1, latentDim]);
-  const digitTensor = new ort.Tensor("float32", oneHotDigit(digit), [1, 10]);
-  const outputs = await runDecoder({
-    z: zTensor,
-    digit_onehot: digitTensor,
-  });
+  const feeds = { z: zTensor };
+
+  if (!isUnconditional(metadata)) {
+    const d = digit ?? 0;
+    feeds.digit_onehot = new ort.Tensor("float32", oneHotDigit(d), [1, 10]);
+  }
+
+  const outputs = await runDecoder(feeds);
   const output = outputs.image || outputs.output || Object.values(outputs)[0];
   const imageData = tensorToImageData(output, imageSize, outputRange);
 
   return {
     id: uid(),
-    digit,
+    digit: digit ?? null,
     z,
     imageData,
     dataUrl: imageDataToDataUrl(imageData),
@@ -134,89 +147,49 @@ export async function decodeCandidate({
   };
 }
 
-export async function decodeAllDigitsAtLatent({
-  z = sampleLatent(),
-  source = "latent_inspector",
-} = {}) {
-  const metadata = await loadDecoderMetadata();
-  const latentDim = metadata.latent_dim || 2;
-  const imageSize = metadata.image_size || IMAGE_SIZE;
-  const outputRange = metadata.output_range || [-1, 1];
-  const digits = metadata.digits || [...Array(10).keys()];
-
-  const zBatch = new Float32Array(digits.length * latentDim);
-  const digitBatch = new Float32Array(digits.length * 10);
-
-  digits.forEach((digit, i) => {
-    zBatch.set(z, i * latentDim);
-    digitBatch.set(oneHotDigit(digit), i * 10);
-  });
-
-  const outputs = await runDecoder({
-    z: new ort.Tensor("float32", zBatch, [digits.length, latentDim]),
-    digit_onehot: new ort.Tensor("float32", digitBatch, [digits.length, 10]),
-  });
-  const output = outputs.image || outputs.output || Object.values(outputs)[0];
-
-  return digits.map((digit, i) => {
-    const imageData = tensorToImageData(output, imageSize, outputRange, i);
-    return {
-      id: uid(),
-      digit,
-      z,
-      imageData,
-      dataUrl: imageDataToDataUrl(imageData),
-      source,
-    };
-  });
-}
-
 export async function decodeCandidates(specs) {
   return Promise.all(specs.map((spec) => decodeCandidate(spec)));
 }
 
-function shuffledDigits() {
-  return [...Array(10).keys()].sort(() => Math.random() - 0.5);
-}
-
-export async function generateCandidateBatch({ count = 3, latentParamsByDigit = null } = {}) {
-  const digits = shuffledDigits().slice(0, count);
+export async function generateCandidateBatch({ count = 3, latentParams = null } = {}) {
+  const mean = latentParams?.mean ?? [0, 0];
+  const std = latentParams?.std ?? 0.78;
 
   return decodeCandidates(
-    digits.map((digit) => ({
-      digit,
-      source: "base",
-      z: sampleLatent(
-        latentParamsByDigit?.[digit]?.mean || [0, 0],
-        latentParamsByDigit?.[digit]?.std || 0.78
-      ),
+    Array.from({ length: count }, () => ({
+      source: "preference",
+      z: sampleLatent(mean, std),
     }))
   );
 }
 
-export async function generateSamplesForDigit(digit, count, mean = [0, 0], std = 0.78) {
+export async function generateSamplesBase(count, mean = [0, 0], std = 0.78) {
   return decodeCandidates(
     Array.from({ length: count }, () => ({
-      digit,
       source: "base",
       z: sampleLatent(mean, std),
     }))
   );
 }
 
-export async function generateEvaluationBaseSamples(countPerDigit = 2, latentParamsByDigit = null) {
-  const specs = [];
+/** @deprecated Prefer generateSamplesBase — kept for notebooks / older call sites */
+export async function generateSamples(count, mean = [0, 0], std = 0.78, source = "base") {
+  return decodeCandidates(
+    Array.from({ length: count }, () => ({
+      source,
+      z: sampleLatent(mean, std),
+    }))
+  );
+}
 
-  for (let digit = 0; digit <= 9; digit += 1) {
-    const params = latentParamsByDigit?.[digit] || { mean: [0, 0], std: 0.78 };
-    for (let i = 0; i < countPerDigit; i += 1) {
-      specs.push({
-        digit,
-        source: "base",
-        z: sampleLatent(params.mean, params.std),
-      });
-    }
-  }
+export async function generateEvaluationBaseSamples(count = 24, latentParams = null) {
+  const mean = latentParams?.mean ?? [0, 0];
+  const std = latentParams?.std ?? 0.78;
 
-  return decodeCandidates(specs);
+  return decodeCandidates(
+    Array.from({ length: count }, () => ({
+      source: "eval_base",
+      z: sampleLatent(mean, std),
+    }))
+  );
 }

@@ -3,7 +3,7 @@ function DigitImage({ candidate, size = 64 }) {
     <div style={{ textAlign: "center" }}>
       <img
         src={candidate.dataUrl}
-        alt={`Generated ${candidate.digit}`}
+        alt="Generated sample"
         style={{
           width: size,
           height: size,
@@ -57,7 +57,7 @@ export default function SampleGenerations({
               textTransform: "uppercase",
             }}
           >
-            Sample Generations
+            Sample generations
           </span>
 
           <span
@@ -69,11 +69,12 @@ export default function SampleGenerations({
               borderRadius: 10,
             }}
           >
-            generation only
+            unconditional decode(z)
           </span>
         </div>
 
         <button
+          type="button"
           onClick={onRefreshSamples}
           style={{
             fontSize: 11,
@@ -91,11 +92,14 @@ export default function SampleGenerations({
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-        <span style={{ fontSize: 12, color: "#64748b", marginRight: 4 }}>Inspect digit:</span>
+        <span style={{ fontSize: 12, color: "#64748b", marginRight: 4 }}>
+          Highlight digit cluster:
+        </span>
 
         {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => (
           <button
             key={d}
+            type="button"
             onClick={() => onSampleDigitChange(d)}
             style={{
               width: 26,
@@ -124,12 +128,10 @@ export default function SampleGenerations({
             background: "#10141d",
           }}
         >
-          <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 3 }}>
-            Base Generator
-          </div>
+          <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 3 }}>Base generator</div>
 
           <div style={{ fontSize: 11, color: "#64748b", marginBottom: 10 }}>
-            Random outputs before preference tuning for digit {sampleDigit}
+            Samples from the empirical training prior (does not change with RLHF).
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -147,12 +149,10 @@ export default function SampleGenerations({
             background: "rgba(79,70,229,0.08)",
           }}
         >
-          <div style={{ fontSize: 12, color: "#c7d2fe", marginBottom: 3 }}>
-            RLHF-Tuned Generator
-          </div>
+          <div style={{ fontSize: 12, color: "#c7d2fe", marginBottom: 3 }}>RLHF-tuned sampler</div>
 
           <div style={{ fontSize: 11, color: "#818cf8", marginBottom: 10 }}>
-            Outputs selected by the learned reward model for digit {sampleDigit}
+            Best-of-N decoded latents scored by the learned reward model.
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -171,7 +171,7 @@ export default function SampleGenerations({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(760px, 1.45fr) minmax(340px, 1fr)",
+        gridTemplateColumns: "minmax(560px, 1.45fr) minmax(340px, 1fr)",
         gap: 12,
         marginBottom: 12,
       }}

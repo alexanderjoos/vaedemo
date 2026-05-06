@@ -1,8 +1,4 @@
-import {
-  ANALYZER_TRAITS,
-  TRAIT_LABELS,
-  describeTraitDirection,
-} from "../model/analyzers";
+import { TRAIT_LABELS, describeTraitDirection } from "../model/analyzers";
 
 function confColor(level) {
   if (level === "confirmed") return "#4ade80";

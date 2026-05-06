@@ -1,3 +1,5 @@
+"""Train an unconditional 2D VAE on MNIST for Cornell-style latent navigation."""
+
 import argparse
 from pathlib import Path
 
@@ -5,25 +7,24 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 
-from data.colored_mnist import ColoredMNIST
+from data.mnist_rgb import MnistRgb64
 from models.vae import VAE, vae_loss
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train a 2D unconditional VAE on Colored MNIST.")
+    parser = argparse.ArgumentParser(description="Train a 2D unconditional VAE on MNIST (RGB-normalized).")
     parser.add_argument("--data-dir", type=Path, default=Path("backend_training/.data"))
-    parser.add_argument("--checkpoint", type=Path, default=Path("backend_training/checkpoints/vae.pt"))
-    parser.add_argument("--preview", type=Path, default=Path("backend_training/checkpoints/recon_preview.png"))
-    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--checkpoint", type=Path, default=Path("backend_training/checkpoints/mnist_vae.pt"))
+    parser.add_argument("--preview", type=Path, default=Path("backend_training/checkpoints/mnist_recon_preview.png"))
+    parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--lr", type=float, default=2e-4)
-    parser.add_argument("--beta", type=float, default=0.001)
+    parser.add_argument("--beta", type=float, default=0.004, help="KL weight (moderate for separated clusters)")
     parser.add_argument("--latent-dim", type=int, default=2)
     parser.add_argument("--image-size", type=int, default=64)
     parser.add_argument("--num-workers", type=int, default=2)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--device", choices=["auto", "cpu", "cuda", "mps"], default="auto")
-
     return parser.parse_args()
 
 
@@ -34,14 +35,11 @@ def resolve_device(name):
         return torch.device("cuda")
     if torch.backends.mps.is_available():
         return torch.device("mps")
-
     return torch.device("cpu")
 
 
-def save_preview(model, batch, out_path, device):
-    images, _, _ = batch
-    images = images[:8].to(device)
-
+def save_preview(model, batch_images, out_path, device):
+    images = batch_images[:8].to(device)
     model.eval()
     with torch.no_grad():
         recon, _, _ = model(images)
@@ -57,7 +55,7 @@ def main():
     torch.manual_seed(args.seed)
     device = resolve_device(args.device)
 
-    dataset = ColoredMNIST(
+    dataset = MnistRgb64(
         root=args.data_dir,
         train=True,
         image_size=args.image_size,
@@ -82,7 +80,7 @@ def main():
         total_recon = 0.0
         total_kl = 0.0
 
-        for images, _, _ in loader:
+        for images, _labels in loader:
             images = images.to(device)
 
             optimizer.zero_grad(set_to_none=True)
@@ -104,7 +102,7 @@ def main():
         )
 
         if epoch == 1 or epoch == args.epochs or epoch % 5 == 0:
-            save_preview(model, next(iter(loader)), args.preview, device)
+            save_preview(model, next(iter(loader))[0], args.preview, device)
 
     torch.save(
         {

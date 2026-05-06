@@ -16,7 +16,7 @@ function DigitImage({
     <div style={{ textAlign: "center" }}>
       <img
         src={candidate.dataUrl}
-        alt={`Generated ${candidate.digit}`}
+        alt="Preference candidate"
         onPointerDown={onPress}
         onClick={onClick}
         style={{

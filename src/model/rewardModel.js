@@ -1,12 +1,15 @@
 const REWARD_GRID = 8;
 const COLOR_GRID = 4;
-const REWARD_FEATURE_DIM = REWARD_GRID * REWARD_GRID + COLOR_GRID * COLOR_GRID * 3 + 10;
+
+export const REWARD_FEATURE_DIM =
+  REWARD_GRID * REWARD_GRID + COLOR_GRID * COLOR_GRID * 3;
 
 export function createRewardModel() {
   return {
     weights: Array(REWARD_FEATURE_DIM).fill(0),
     bias: 0,
     lr: 0.07,
+    conditioning: "none",
   };
 }
 
@@ -15,13 +18,14 @@ export function cloneRewardModel(rm) {
     weights: [...rm.weights],
     bias: rm.bias,
     lr: rm.lr,
+    conditioning: rm.conditioning ?? "none",
   };
 }
 
 function encodeRewardFeatures(candidate) {
   if (candidate.rewardFeatures) return candidate.rewardFeatures;
 
-  const { imageData, digit } = candidate;
+  const { imageData } = candidate;
   const { data, width, height } = imageData;
 
   const gray = Array(REWARD_GRID * REWARD_GRID).fill(0);
@@ -68,10 +72,7 @@ function encodeRewardFeatures(candidate) {
     color[i * 3 + 2] = color[i * 3 + 2] / count - 0.5;
   }
 
-  const oneHot = Array(10).fill(0);
-  oneHot[digit] = 1;
-
-  const features = [...gray, ...color, ...oneHot];
+  const features = [...gray, ...color];
   candidate.rewardFeatures = features;
 
   return features;
