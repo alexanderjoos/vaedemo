@@ -28,18 +28,6 @@ npm install
 npm run dev -- --host 127.0.0.1
 ```
 
-The app expects these exported model files:
-
-```text
-public/models/decoder.onnx
-public/models/metadata.json
-public/models/latent_map.json
-```
-
-`decoder.onnx.data` is present when ONNX weights are stored externally.
-
-They are included in this repo after export.
-
 ## Train the Decoder Locally
 
 Create or reuse the backend virtualenv, then train and export:
