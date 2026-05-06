@@ -9,7 +9,7 @@ pip install torch torchvision onnx
 Train the 2D unconditional VAE:
 
 ```bash
-python backend_training/train_cvae.py --epochs 20
+python backend_training/train_unconditional_mnist.py --epochs 20
 ```
 
 Export the decoder for the Vite frontend:
@@ -20,8 +20,10 @@ python backend_training/export_decoder.py
 
 This writes:
 
-- `backend_training/checkpoints/vae.pt`
+- `backend_training/checkpoints/mnist_vae.pt`
+- `backend_training/checkpoints/mnist_recon_preview.png`
 - `public/models/decoder.onnx`
+- `public/models/decoder.onnx.data`
 - `public/models/metadata.json`
 - `public/models/latent_map.json`
 

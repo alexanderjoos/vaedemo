@@ -100,7 +100,4 @@ What does not change during the demo:
 - `src/model/rewardModel.js`: image-based preference reward model.
 - `src/model/latentPolicy.js`: reward-score-driven updates to the latent sampling distribution.
 - `src/model/latentMap.js`: latent embedding asset loader for the CS4782-style visualization.
-- `src/model/analyzers.js`: post-hoc diagnostic image analyzers only.
 - `backend_training/`: offline PyTorch unconditional MNIST VAE training and ONNX export (`train_unconditional_mnist.py`, `export_decoder.py`).
-
-Analyzer scores are never passed into the reward model or latent policy.
