@@ -34,7 +34,7 @@ export default function SampleGenerations({
         background: "#13161e",
         border: "1px solid #1e293b",
         borderRadius: 8,
-        padding: 14,
+        padding: 12,
       }}
     >
       <div
@@ -94,19 +94,19 @@ export default function SampleGenerations({
           style={{
             border: "1px solid #334155",
             borderRadius: 9,
-            padding: 12,
+            padding: 10,
             background: "#10141d",
           }}
         >
           <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 3 }}>Base generator</div>
 
-          <div style={{ fontSize: 11, color: "#64748b", marginBottom: 10 }}>
+          <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>
             Samples from the empirical training prior (does not change with RLHF).
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {baseSamples.map((candidate) => (
-              <DigitImage key={candidate.id} candidate={candidate} size={58} />
+              <DigitImage key={candidate.id} candidate={candidate} size={54} />
             ))}
           </div>
         </div>
@@ -115,19 +115,19 @@ export default function SampleGenerations({
           style={{
             border: "1px solid #4f46e5",
             borderRadius: 9,
-            padding: 12,
+            padding: 10,
             background: "rgba(79,70,229,0.08)",
           }}
         >
           <div style={{ fontSize: 12, color: "#c7d2fe", marginBottom: 3 }}>RLHF-tuned sampler</div>
 
-          <div style={{ fontSize: 11, color: "#818cf8", marginBottom: 10 }}>
+          <div style={{ fontSize: 11, color: "#818cf8", marginBottom: 8 }}>
             Best-of-N decoded latents scored by the learned reward model.
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {tunedSamples.map((candidate) => (
-              <DigitImage key={candidate.id} candidate={candidate} size={58} />
+              <DigitImage key={candidate.id} candidate={candidate} size={54} />
             ))}
           </div>
         </div>
@@ -141,9 +141,8 @@ export default function SampleGenerations({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(560px, 1.45fr) minmax(340px, 1fr)",
+        gridTemplateColumns: "minmax(520px, 1.45fr) minmax(320px, 1fr)",
         gap: 12,
-        marginBottom: 12,
       }}
     >
       {latentPane}

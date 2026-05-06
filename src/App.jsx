@@ -18,7 +18,7 @@ import {
   createRewardModel,
   updateRewardModelFromPreference,
 } from "./model/rewardModel";
-import { computeTraitAnalysis, describeTraitDirection } from "./model/analyzers";
+import { computeTraitAnalysis } from "./model/analyzers";
 import {
   createLatentPolicy,
   getBaseLatentParams,
@@ -36,7 +36,6 @@ export default function App() {
   const [latentMap, setLatentMap] = useState(null);
   const [rewardModel, setRewardModel] = useState(() => createRewardModel());
   const [latentPolicy, setLatentPolicy] = useState(() => createLatentPolicy());
-  const [trainingPhase, setTrainingPhase] = useState("idle");
   const [rankings, setRankings] = useState(0);
   const [candidates, setCandidates] = useState([]);
   const [candidateQueue, setCandidateQueue] = useState([]);
@@ -121,7 +120,6 @@ export default function App() {
   }, []);
 
   const makeNewCandidates = useCallback(async () => {
-    setTrainingPhase("idle");
     await advanceCandidateBatch();
   }, [advanceCandidateBatch]);
 
@@ -163,7 +161,6 @@ export default function App() {
 
       setSelectedIdx(idx);
       setRejectedIdxs(rejectedIdxsNext);
-      setTrainingPhase("preference_selected");
 
       const rmCopy = cloneRewardModel(rewardModel);
       rejected.forEach((rej) => {
@@ -174,16 +171,13 @@ export default function App() {
       rejected.forEach((entry) => rejectedHistory.current.push(entry));
 
       try {
-        setTrainingPhase("reward_training");
         setRewardModel(rmCopy);
         setRankings((value) => value + 1);
 
-        setTrainingPhase("policy_training");
         const nextLatentPolicy = await updateLatentPolicyFromRewardScores(latentPolicy, rmCopy);
         latentPolicyRef.current = nextLatentPolicy;
         setLatentPolicy(nextLatentPolicy);
 
-        setTrainingPhase("refreshing_samples");
         await advanceCandidateBatch();
 
         const [nextTuned, nextEvalTuned] = await Promise.all([
@@ -192,10 +186,8 @@ export default function App() {
         ]);
         setTunedSamples(nextTuned);
         updateDiagnostics(evalBaseSamples, nextEvalTuned);
-        setTrainingPhase("complete");
       } catch (error) {
         setDecoderError(error.message);
-        setTrainingPhase("complete");
       }
     },
     [
@@ -297,7 +289,6 @@ export default function App() {
 
     setRewardModel(rm);
     setLatentPolicy(nextLatentPolicy);
-    setTrainingPhase("idle");
     setRankings(0);
     setCandidates(candidateBatches[0] || []);
     setCandidateQueue(candidateBatches.slice(1));
@@ -311,10 +302,6 @@ export default function App() {
     updateDiagnostics(nextEvalBase, nextEvalTuned);
   };
 
-  const learnedTraits = Object.entries(traitAnalysis)
-    .filter(([, value]) => value.level === "confirmed" || value.level === "strong")
-    .map(([trait, value]) => describeTraitDirection(trait, value.direction));
-
   return (
     <div
       style={{
@@ -322,7 +309,7 @@ export default function App() {
         background: "#0c0e14",
         color: "#e2e8f0",
         fontFamily: "'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif",
-        padding: "12px 16px",
+        padding: "10px 14px",
         boxSizing: "border-box",
       }}
     >
@@ -331,7 +318,7 @@ export default function App() {
         rel="stylesheet"
       />
 
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 10 }}>
         <h1
           style={{
             fontSize: 20,
@@ -344,7 +331,7 @@ export default function App() {
           RLHF Demo
         </h1>
 
-        <span style={{ fontSize: 12, color: "#64748b" }}>
+        <span style={{ fontSize: 11, color: "#64748b" }}>
           Unconditional MNIST VAE with a frozen decoder and preference-tuned latent sampling.
         </span>
 
@@ -368,7 +355,7 @@ export default function App() {
           display: "grid",
           gridTemplateColumns: "1fr 280px",
           gap: 12,
-          marginBottom: 12,
+          marginBottom: 10,
         }}
       >
         <PreferenceArena
@@ -388,19 +375,26 @@ export default function App() {
               background: "#13161e",
               border: "1px solid #1e293b",
               borderRadius: 8,
-              padding: 14,
+              padding: 10,
             }}
           >
             <ControlsSummary
               rewardModel={rewardModel}
               onLearningRateChange={handleLearningRateChange}
               onReset={handleReset}
-              learnedTraits={learnedTraits}
               rankings={rankings}
             />
-          </div>
 
-          <TraitAnalyzer rankings={rankings} traitAnalysis={traitAnalysis} />
+            <div
+              style={{
+                marginTop: 10,
+                paddingTop: 10,
+                borderTop: "1px solid #1e293b",
+              }}
+            >
+              <TraitAnalyzer rankings={rankings} traitAnalysis={traitAnalysis} />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -412,7 +406,6 @@ export default function App() {
             candidates={candidates}
             selectedIdx={selectedIdx}
             rejectedIdxs={rejectedIdxs}
-            trainingPhase={trainingPhase}
           />
         }
         baseSamples={baseSamples}

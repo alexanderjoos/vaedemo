@@ -4,15 +4,6 @@ import { decodeCandidate } from "../model/decoder";
 import { getLatentMapExtent } from "../model/latentMap";
 import { getLatentPolicyMean } from "../model/latentPolicy";
 
-const phaseText = {
-  idle: "Waiting for a preference.",
-  preference_selected: "Preference captured. Holding the chosen and rejected points.",
-  reward_training: "Reward model update is fitting the chosen image above rejected images.",
-  policy_training: "Latent sampling policy is shifting toward higher reward regions.",
-  refreshing_samples: "Refreshing candidates and tuned samples from the updated policy.",
-  complete: "Update complete. New samples reflect the latest feedback.",
-};
-
 const DIGIT_COLORS = [
   "#60a5fa",
   "#f59e0b",
@@ -166,7 +157,6 @@ export default function LatentSpacePane({
   candidates,
   selectedIdx,
   rejectedIdxs,
-  trainingPhase,
 }) {
   const plotSize = 320;
   const [previewPoint, setPreviewPoint] = useState(() => getLatentPolicyMean(latentPolicy));
@@ -231,7 +221,7 @@ export default function LatentSpacePane({
         background: "#13161e",
         border: "1px solid #1e293b",
         borderRadius: 8,
-        padding: 14,
+        padding: 12,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
@@ -264,8 +254,8 @@ export default function LatentSpacePane({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr minmax(200px, 280px)",
-          gap: 14,
+          gridTemplateColumns: "1fr minmax(190px, 250px)",
+          gap: 12,
           alignItems: "start",
         }}
       >
@@ -289,7 +279,7 @@ export default function LatentSpacePane({
           <svg
             viewBox={`0 0 ${plotSize} ${plotSize}`}
             width="100%"
-            height={plotSize}
+            height={300}
             role="img"
             aria-label="MNIST latent space"
             onClick={(event) => handlePick(pickPoint(event, plotSize, extent))}
@@ -441,7 +431,7 @@ export default function LatentSpacePane({
           <div
             style={{
               width: "100%",
-              maxWidth: 240,
+              maxWidth: 220,
               aspectRatio: "1",
               borderRadius: 10,
               overflow: "hidden",
@@ -506,20 +496,6 @@ export default function LatentSpacePane({
         </div>
       </div>
 
-      <div
-        style={{
-          marginTop: 12,
-          padding: "8px 10px",
-          borderRadius: 6,
-          background: "#10141d",
-          borderLeft: "2px solid #8b5cf6",
-          color: "#cbd5e1",
-          fontSize: 11,
-          lineHeight: 1.5,
-        }}
-      >
-        {phaseText[trainingPhase]}
-      </div>
     </div>
   );
 }

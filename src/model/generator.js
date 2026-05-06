@@ -1,5 +1,5 @@
 export const IMAGE_SIZE = 64;
-export const SAMPLE_COUNT = 6;
+export const SAMPLE_COUNT = 4;
 
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 

@@ -16,7 +16,7 @@ except ModuleNotFoundError:
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Export the unconditional MNIST VAE decoder to ONNX.")
-    parser.add_argument("--checkpoint", type=Path, default=Path("backend_training/checkpoints/vae.pt"))
+    parser.add_argument("--checkpoint", type=Path, default=Path("backend_training/checkpoints/mnist_vae.pt"))
     parser.add_argument("--onnx-out", type=Path, default=Path("public/models/decoder.onnx"))
     parser.add_argument("--metadata-out", type=Path, default=Path("public/models/metadata.json"))
     parser.add_argument("--latent-map-out", type=Path, default=Path("public/models/latent_map.json"))

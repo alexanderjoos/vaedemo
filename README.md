@@ -1,8 +1,8 @@
-# RLHF Demo
+# RLHF Demo (Cornell-style MNIST latent map)
 
-An interactive RLHF-style image generation demo built with React, Vite, a browser ONNX decoder, and an image-based reward model.
+An interactive RLHF-style demo built with React, Vite, an unconditional 2D MNIST VAE in the browser (ONNX), and an image-based reward model.
 
-The frontend lets you pick preferred generated samples. Each preference updates a reward model, shifts a 2D latent sampling policy, and refreshes samples from a frozen unconditional VAE decoder.
+You navigate latent space like the [CS4782 MNIST viewer](https://www.cs.cornell.edu/courses/cs4782/2026sp/demos/vae/vae_viewer.html): click or drag to change **z** and decode a single digit. The preference arena then shifts a **learned Gaussian sampler** over **z** (cyan vs purple prior ellipses on the scatter plot) while the decoder stays frozen.
 
 ## Run the Demo
 
@@ -15,10 +15,11 @@ The app expects these exported model files:
 
 ```text
 public/models/decoder.onnx
-public/models/decoder.onnx.data
 public/models/metadata.json
 public/models/latent_map.json
 ```
+
+`decoder.onnx.data` is only present when weights are stored externally; the loader falls back to an embedded-weights model.
 
 They are included in this repo after export.
 
@@ -29,7 +30,7 @@ Create or reuse the backend virtualenv, then train and export:
 ```bash
 python3 -m venv backend_training/.venv
 backend_training/.venv/bin/pip install torch torchvision onnx onnxscript
-backend_training/.venv/bin/python backend_training/train_cvae.py --epochs 20 --batch-size 128 --num-workers 0 --device cpu
+backend_training/.venv/bin/python backend_training/train_unconditional_mnist.py --epochs 20 --batch-size 256 --num-workers 0 --device cpu
 backend_training/.venv/bin/python backend_training/export_decoder.py
 ```
 
@@ -54,7 +55,6 @@ Copy these files back into `public/models/` if you train remotely:
 
 ```text
 decoder.onnx
-decoder.onnx.data
 metadata.json
 latent_map.json
 ```
@@ -79,6 +79,6 @@ Then open the local Vite URL and use the preference arena. Each click updates th
 - `src/model/latentPolicy.js`: reward-score-driven 2D latent policy updates.
 - `src/model/latentMap.js`: latent embedding asset loader for the CS4782-style visualization.
 - `src/model/analyzers.js`: post-hoc diagnostic image analyzers only.
-- `backend_training/`: offline PyTorch VAE training and ONNX export.
+- `backend_training/`: offline PyTorch unconditional MNIST VAE training and ONNX export (`train_unconditional_mnist.py`, `export_decoder.py`).
 
 Analyzer scores are never passed into the reward model or latent policy.

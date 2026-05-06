@@ -102,7 +102,8 @@ def main():
             f"epoch {epoch:03d} "
             f"loss={total_loss / steps:.5f} "
             f"recon={total_recon / steps:.5f} "
-            f"kl={total_kl / steps:.5f}"
+            f"kl={total_kl / steps:.5f}",
+            flush=True,
         )
 
         if epoch == 1 or epoch == args.epochs or epoch % 5 == 0:

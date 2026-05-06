@@ -83,7 +83,7 @@ export default function PreferenceArena({
         background: "#13161e",
         border: "1px solid #4f46e5",
         borderRadius: 8,
-        padding: 14,
+        padding: 10,
       }}
     >
       <div
@@ -95,18 +95,6 @@ export default function PreferenceArena({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span
-            style={{
-              fontWeight: 600,
-              fontSize: 13,
-              color: "#94a3b8",
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-            }}
-          >
-            Preference Arena
-          </span>
-
           <span
             style={{
               fontSize: 10,
@@ -151,17 +139,16 @@ export default function PreferenceArena({
         </button>
       </div>
 
-      <p style={{ fontSize: 13, color: "#cbd5e1", margin: "0 0 12px 0" }}>
-        Which output do you prefer? Click or press 1 / 2 / 3. One next prompt is kept warm in the
-        background.
+      <p style={{ fontSize: 12, color: "#cbd5e1", margin: "0 0 8px 0" }}>
+        Pick the best output. Click or press `1 / 2 / 3`.
       </p>
 
       <div
         style={{
           display: "flex",
           justifyContent: "center",
-          gap: 28,
-          minHeight: 120,
+          gap: 18,
+          minHeight: 88,
           alignItems: "center",
         }}
       >
@@ -170,7 +157,7 @@ export default function PreferenceArena({
             <DigitImage
               key={candidate.id}
               candidate={candidate}
-              size={96}
+              size={74}
               onPress={() => {
                 setPressedIdx(i);
               }}
